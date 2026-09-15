@@ -12,6 +12,11 @@
     "dev": "pnpm -r --parallel --filter ./apps/web --filter ./apps/api run dev",
     "build": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run build",
     "test": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run test",
-    "check": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run check"
+    "check": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
   }
 }

@@ -152,8 +152,8 @@ Prefer queries that include authorization scope directly.
 Conceptually prefer:
 
 resource WHERE
-    id = requestedResource
-    AND family_id = authorizedFamily
+id = requestedResource
+AND family_id = authorizedFamily
 
 over:
 
