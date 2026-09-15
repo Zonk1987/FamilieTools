@@ -7,6 +7,11 @@
     "node": ">=22.23.2"
   },
   "scripts": {
-    "check": "echo \"No checks configured yet\""
+    "dev:web": "pnpm --filter ./apps/web dev",
+    "dev:api": "pnpm --filter ./apps/api dev",
+    "dev": "pnpm -r --parallel --filter ./apps/web --filter ./apps/api run dev",
+    "build": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run build",
+    "test": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run test",
+    "check": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run check"
   }
 }
