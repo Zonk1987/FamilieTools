@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# Temporary files
+tmp/
+temp/
+.cache/
+*.tmp
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Operating system
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Local AI / codebase indexes
+.claude-memory/
+.lancedb/
+
+# Misc
+*.bak
+*.swp
