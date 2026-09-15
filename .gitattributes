@@ -1,0 +1,20 @@
+# Normalize text files in the repository
+* text=auto eol=lf
+
+# Windows PowerShell scripts
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+
+# Windows command scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
