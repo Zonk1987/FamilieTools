@@ -18,6 +18,9 @@ temp/
 *.tmp
 *.log
 
+# TypeScript build cache
+*.tsbuildinfo
+
 # Environment / secrets
 .env
 .env.*
