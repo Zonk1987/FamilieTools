@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 
 import { FamiliesRepository, Family, NewFamily } from './families.repository.js';
+import type { DatabaseExecutor } from '../database/database.service.js';
 
 @Injectable()
 export class FamiliesService {
   constructor(private readonly familiesRepository: FamiliesRepository) {}
 
-  async createFamily(name: string): Promise<Family> {
+  async createFamily(name: string, database?: DatabaseExecutor): Promise<Family> {
     const normalizedName = name.trim();
 
     if (!normalizedName) {
@@ -17,10 +18,12 @@ export class FamiliesService {
       name: normalizedName,
     };
 
-    return this.familiesRepository.create(data);
+    return database
+      ? this.familiesRepository.create(data, database)
+      : this.familiesRepository.create(data);
   }
 
-  async findFamilyById(id: string): Promise<Family | null> {
-    return this.familiesRepository.findById(id);
+  async findFamilyById(id: string, database?: DatabaseExecutor): Promise<Family | null> {
+    return this.familiesRepository.findById(id, database);
   }
 }

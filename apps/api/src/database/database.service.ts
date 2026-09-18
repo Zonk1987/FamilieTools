@@ -4,11 +4,17 @@ import { Pool } from 'pg';
 
 import * as schema from './schema/index.js';
 
+export type DatabaseClient = NodePgDatabase<typeof schema>;
+
+export type DatabaseTransaction = Parameters<Parameters<DatabaseClient['transaction']>[0]>[0];
+
+export type DatabaseExecutor = DatabaseClient | DatabaseTransaction;
+
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
   private readonly pool: Pool;
 
-  readonly db: NodePgDatabase<typeof schema>;
+  readonly db: DatabaseClient;
 
   constructor() {
     const connectionString = process.env.DATABASE_URL;
@@ -24,6 +30,10 @@ export class DatabaseService implements OnApplicationShutdown {
     this.db = drizzle(this.pool, {
       schema,
     });
+  }
+
+  async transaction<T>(callback: (transaction: DatabaseTransaction) => Promise<T>): Promise<T> {
+    return this.db.transaction(callback);
   }
 
   async onApplicationShutdown(): Promise<void> {

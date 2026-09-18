@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 
-import { DatabaseService } from '../database/database.service.js';
+import { DatabaseService, type DatabaseExecutor } from '../database/database.service.js';
 import { families } from '../database/schema/families.js';
 
 export type NewFamily = typeof families.$inferInsert;
@@ -11,8 +11,11 @@ export type Family = typeof families.$inferSelect;
 export class FamiliesRepository {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async create(data: NewFamily): Promise<Family> {
-    const [family] = await this.databaseService.db.insert(families).values(data).returning();
+  async create(
+    data: NewFamily,
+    database: DatabaseExecutor = this.databaseService.db,
+  ): Promise<Family> {
+    const [family] = await database.insert(families).values(data).returning();
 
     if (!family) {
       throw new Error('Failed to create family');
@@ -21,12 +24,11 @@ export class FamiliesRepository {
     return family;
   }
 
-  async findById(id: string): Promise<Family | null> {
-    const [family] = await this.databaseService.db
-      .select()
-      .from(families)
-      .where(eq(families.id, id))
-      .limit(1);
+  async findById(
+    id: string,
+    database: DatabaseExecutor = this.databaseService.db,
+  ): Promise<Family | null> {
+    const [family] = await database.select().from(families).where(eq(families.id, id)).limit(1);
 
     return family ?? null;
   }
