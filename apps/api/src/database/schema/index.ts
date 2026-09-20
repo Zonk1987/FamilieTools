@@ -8,3 +8,4 @@ export * from './platform-state.js';
 export * from './instance-settings.js';
 export * from './themes.js';
 export * from './user-preferences.js';
+export * from './modules.js';

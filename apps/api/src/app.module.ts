@@ -11,12 +11,18 @@ import { PlatformAuthModule } from './platform-auth/platform-auth.module.js';
 import { PlatformStateModule } from './platform-state/platform-state.module.js';
 import { SetupModule } from './setup/setup.module.js';
 import { InstanceSettingsModule } from './instance-settings/instance-settings.module.js';
+import { ThemesModule } from './themes/themes.module.js';
+import { UserPreferencesModule } from './user-preferences/user-preferences.module.js';
+import { ModulesModule } from './modules/modules.module.js';
 
 @Module({
   imports: [
     DatabaseModule,
     PlatformStateModule,
+    ThemesModule,
     HealthModule,
+    UserPreferencesModule,
+    ModulesModule,
     SetupModule,
     UsersModule,
     InstanceSettingsModule,

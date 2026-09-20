@@ -36,6 +36,13 @@
       "when": 1789728640329,
       "tag": "0004_safe_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789770711922,
+      "tag": "0005_pink_preak",
+      "breakpoints": true
     }
   ]
 }
