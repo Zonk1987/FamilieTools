@@ -2,7 +2,7 @@
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
 
-  import { Blocks, Gauge, Palette, Settings, Users, UsersRound, Activity } from 'lucide-svelte';
+  import { Blocks, Gauge, Palette, Settings, Users, UsersRound, Activity } from '@lucide/svelte';
 
   const navigation = [
     {
@@ -314,3 +314,4 @@
     }
   }
 </style>
+

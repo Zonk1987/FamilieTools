@@ -1,0 +1,17 @@
+{
+  "manifestVersion": 1,
+  "id": "org.familietools.absolute-windows-path",
+  "name": "Absolute Windows Path",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "familietools",
+    "name": "FamilieTools"
+  },
+  "compatibility": {
+    "platform": ">=1.0.0",
+    "moduleApi": "^1.0.0"
+  },
+  "entrypoints": {
+    "backend": "C:\\Windows\\System32\\evil.js"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "manifestVersion": 1,
+  "id": "org.familietools.invalid-platform-range",
+  "name": "Invalid Platform Range",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "familietools",
+    "name": "FamilieTools"
+  },
+  "compatibility": {
+    "platform": "definitely-not-semver",
+    "moduleApi": "^1.0.0"
+  },
+  "entrypoints": {
+    "backend": "dist/backend/index.js"
+  }
+}

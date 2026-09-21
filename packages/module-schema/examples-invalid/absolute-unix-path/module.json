@@ -1,0 +1,17 @@
+{
+  "manifestVersion": 1,
+  "id": "org.familietools.absolute-unix-path",
+  "name": "Absolute Unix Path",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "familietools",
+    "name": "FamilieTools"
+  },
+  "compatibility": {
+    "platform": ">=1.0.0",
+    "moduleApi": "^1.0.0"
+  },
+  "entrypoints": {
+    "backend": "/etc/passwd"
+  }
+}

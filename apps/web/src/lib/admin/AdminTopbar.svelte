@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bell, Search } from 'lucide-svelte';
+  import { Bell, Search } from '@lucide/svelte';
 </script>
 
 <header class="topbar">
@@ -167,3 +167,4 @@
     }
   }
 </style>
+

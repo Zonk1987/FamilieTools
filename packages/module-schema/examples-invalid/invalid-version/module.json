@@ -1,0 +1,17 @@
+{
+  "manifestVersion": 1,
+  "id": "org.familietools.invalid-version",
+  "name": "Invalid Version",
+  "version": "version-one",
+  "publisher": {
+    "id": "familietools",
+    "name": "FamilieTools"
+  },
+  "compatibility": {
+    "platform": ">=1.0.0",
+    "moduleApi": "^1.0.0"
+  },
+  "entrypoints": {
+    "backend": "dist/backend/index.js"
+  }
+}

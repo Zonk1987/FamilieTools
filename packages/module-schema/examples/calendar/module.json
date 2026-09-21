@@ -1,0 +1,78 @@
+{
+  "$schema": "../../module-manifest.schema.json",
+  "manifestVersion": 1,
+  "id": "org.familietools.calendar",
+  "name": "Calendar",
+  "version": "1.0.0",
+  "description": "Shared family calendar module for FamilieTools.",
+  "publisher": {
+    "id": "familietools",
+    "name": "FamilieTools"
+  },
+  "license": "MIT",
+  "compatibility": {
+    "platform": ">=1.0.0",
+    "moduleApi": "^1.0.0",
+    "node": ">=22"
+  },
+  "permissions": ["calendar.read", "calendar.write"],
+  "network": {
+    "allowedHosts": []
+  },
+  "dependencies": {
+    "required": [],
+    "optional": []
+  },
+  "entrypoints": {
+    "backend": "dist/backend/index.js",
+    "frontend": "dist/frontend/index.js"
+  },
+  "migrations": ["migrations/0001_initial.sql"],
+  "storage": {
+    "private": true,
+    "quota": 104857600
+  },
+  "contributions": {
+    "widgets": [
+      {
+        "id": "calendar.upcoming",
+        "name": "Upcoming Events",
+        "component": "widgets/upcoming",
+        "defaultSize": {
+          "width": 2,
+          "height": 2
+        }
+      }
+    ],
+    "navigation": [
+      {
+        "id": "calendar.main",
+        "label": "Calendar",
+        "route": "/calendar",
+        "icon": "calendar",
+        "order": 100
+      }
+    ],
+    "routes": [
+      {
+        "id": "calendar.root",
+        "path": "/calendar",
+        "component": "routes/calendar"
+      }
+    ],
+    "settings": [
+      {
+        "id": "calendar.settings",
+        "schema": "schemas/settings.schema.json"
+      }
+    ],
+    "quickActions": [
+      {
+        "id": "calendar.create-event",
+        "label": "Create event",
+        "action": "calendar.createEvent",
+        "icon": "plus"
+      }
+    ]
+  }
+}

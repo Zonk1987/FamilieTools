@@ -9,7 +9,7 @@
     ShieldCheck,
     Users,
     UsersRound,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   import AdminCard from '$lib/admin/AdminCard.svelte';
   import StatusBadge from '$lib/admin/StatusBadge.svelte';
@@ -543,3 +543,4 @@
     }
   }
 </style>
+

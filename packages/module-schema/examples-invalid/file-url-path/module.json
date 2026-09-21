@@ -1,0 +1,17 @@
+{
+  "manifestVersion": 1,
+  "id": "org.familietools.file-url-path",
+  "name": "File URL Path",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "familietools",
+    "name": "FamilieTools"
+  },
+  "compatibility": {
+    "platform": ">=1.0.0",
+    "moduleApi": "^1.0.0"
+  },
+  "entrypoints": {
+    "backend": "file:///etc/passwd"
+  }
+}

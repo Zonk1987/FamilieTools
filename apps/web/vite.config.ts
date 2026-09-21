@@ -60,9 +60,7 @@ export default defineConfig({
 
       workbox: {
         globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,webmanifest,woff,woff2}'],
-
         navigateFallback: null,
-
         cleanupOutdatedCaches: true,
       },
 

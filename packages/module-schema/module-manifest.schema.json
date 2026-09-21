@@ -1,0 +1,385 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.familietools.dev/module-manifest.schema.json",
+  "title": "FamilieTools Module Manifest",
+  "description": "Manifest schema for installable FamilieTools modules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "version",
+    "publisher",
+    "compatibility",
+    "entrypoints"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema reference used by editors and development tooling."
+    },
+    "manifestVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$",
+      "examples": ["org.familietools.calendar"]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "publisher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "website": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "moduleApi"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "format": "semver-range"
+        },
+        "moduleApi": {
+          "type": "string",
+          "format": "semver-range"
+        },
+        "node": {
+          "type": "string",
+          "format": "semver-range"
+        }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:[.:_-][a-z0-9]+)*$"
+      },
+      "default": []
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowedHosts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
+        }
+      },
+      "default": {
+        "allowedHosts": []
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/moduleDependency"
+          },
+          "default": []
+        },
+        "optional": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/moduleDependency"
+          },
+          "default": []
+        }
+      },
+      "default": {
+        "required": [],
+        "optional": []
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "type": "string",
+          "format": "module-path"
+        },
+        "frontend": {
+          "type": "string",
+          "format": "module-path"
+        },
+        "jobs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "module-path"
+          },
+          "default": []
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "backend": {
+              "type": "string",
+              "format": "module-path"
+            }
+          },
+          "required": ["backend"]
+        },
+        {
+          "properties": {
+            "frontend": {
+              "type": "string",
+              "format": "module-path"
+            }
+          },
+          "required": ["frontend"]
+        }
+      ]
+    },
+    "migrations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "module-path"
+      },
+      "default": []
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "private": {
+          "type": "boolean",
+          "default": false
+        },
+        "quota": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "contributions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "widgets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/widgetContribution"
+          },
+          "default": []
+        },
+        "navigation": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/navigationContribution"
+          },
+          "default": []
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/routeContribution"
+          },
+          "default": []
+        },
+        "settings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/settingsContribution"
+          },
+          "default": []
+        },
+        "quickActions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/quickActionContribution"
+          },
+          "default": []
+        }
+      },
+      "default": {}
+    }
+  },
+  "$defs": {
+    "moduleDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+        },
+        "version": {
+          "type": "string",
+          "format": "semver-range"
+        }
+      }
+    },
+    "widgetContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "component"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        },
+        "defaultSize": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "configSchema": {
+          "type": "string"
+        }
+      }
+    },
+    "navigationContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "route"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "route": {
+          "type": "string",
+          "minLength": 1
+        },
+        "icon": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        }
+      }
+    },
+    "routeContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "component"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "settingsContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "schema"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "quickActionContribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "action"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "icon": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

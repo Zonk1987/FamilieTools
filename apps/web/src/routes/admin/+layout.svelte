@@ -13,3 +13,4 @@
 <AdminShell>
   {@render children()}
 </AdminShell>
+
