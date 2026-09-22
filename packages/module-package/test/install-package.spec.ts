@@ -56,8 +56,6 @@ describe('installModulePackage', () => {
 
     const modulesRoot = path.join(root, 'modules');
 
-    const tempRoot = path.join(root, 'temp');
-
     const archive = createArchive({
       'module.json': JSON.stringify(createValidManifest()),
       'dist/backend/index.js': 'export default {};',
@@ -65,7 +63,6 @@ describe('installModulePackage', () => {
 
     const result = await installModulePackage(archive, {
       modulesRoot,
-      tempRoot,
     });
 
     expect(result.moduleId).toBe('org.familietools.test');
@@ -87,8 +84,6 @@ describe('installModulePackage', () => {
 
     const modulesRoot = path.join(root, 'modules');
 
-    const tempRoot = path.join(root, 'temp');
-
     const archive = createArchive({
       'module.json': JSON.stringify(createValidManifest()),
       'dist/backend/index.js': 'export default {};',
@@ -96,13 +91,11 @@ describe('installModulePackage', () => {
 
     await installModulePackage(archive, {
       modulesRoot,
-      tempRoot,
     });
 
     await expect(
       installModulePackage(archive, {
         modulesRoot,
-        tempRoot,
       }),
     ).rejects.toThrow('Module "org.familietools.test" version "1.0.0" is already installed.');
   });
@@ -113,8 +106,6 @@ describe('installModulePackage', () => {
     cleanupPaths.push(root);
 
     const modulesRoot = path.join(root, 'modules');
-
-    const tempRoot = path.join(root, 'temp');
 
     const firstArchive = createArchive({
       'module.json': JSON.stringify(createValidManifest('org.familietools.test', '1.0.0')),
@@ -128,12 +119,10 @@ describe('installModulePackage', () => {
 
     const first = await installModulePackage(firstArchive, {
       modulesRoot,
-      tempRoot,
     });
 
     const second = await installModulePackage(secondArchive, {
       modulesRoot,
-      tempRoot,
     });
 
     expect(first.installationPath).not.toBe(second.installationPath);
@@ -153,7 +142,6 @@ describe('installModulePackage', () => {
     cleanupPaths.push(root);
 
     const modulesRoot = path.join(root, 'modules');
-    const tempRoot = path.join(root, 'temp');
 
     const archive = createArchive({
       'module.json': JSON.stringify(createValidManifest()),
@@ -162,7 +150,7 @@ describe('installModulePackage', () => {
     await expect(
       installModulePackage(archive, {
         modulesRoot,
-        tempRoot,
+
         inspection: {
           maxArchiveSize: 1,
         },
@@ -175,7 +163,6 @@ describe('installModulePackage', () => {
     cleanupPaths.push(root);
 
     const modulesRoot = path.join(root, 'modules');
-    const tempRoot = path.join(root, 'temp');
 
     const archive = createArchive({
       'module.json': JSON.stringify(createValidManifest()),
@@ -184,19 +171,19 @@ describe('installModulePackage', () => {
 
     await installModulePackage(archive, {
       modulesRoot,
-      tempRoot,
     });
 
     await expect(
       installModulePackage(archive, {
         modulesRoot,
-        tempRoot,
       }),
     ).rejects.toThrow('Module "org.familietools.test" version "1.0.0" is already installed.');
 
-    const tempEntries = await fs.readdir(tempRoot);
+    const stagingRoot = path.join(modulesRoot, '.staging');
 
-    expect(tempEntries).toHaveLength(0);
+    const stagingEntries = await fs.readdir(stagingRoot);
+
+    expect(stagingEntries).toHaveLength(0);
   });
   it('allows only one concurrent installation of the same module version', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'familietools-install-test-'));
@@ -204,7 +191,6 @@ describe('installModulePackage', () => {
     cleanupPaths.push(root);
 
     const modulesRoot = path.join(root, 'modules');
-    const tempRoot = path.join(root, 'temp');
 
     const archive = createArchive({
       'module.json': JSON.stringify(createValidManifest()),
@@ -214,11 +200,9 @@ describe('installModulePackage', () => {
     const results = await Promise.allSettled([
       installModulePackage(archive, {
         modulesRoot,
-        tempRoot,
       }),
       installModulePackage(archive, {
         modulesRoot,
-        tempRoot,
       }),
     ]);
 
@@ -235,5 +219,32 @@ describe('installModulePackage', () => {
         'Module "org.familietools.test" version "1.0.0" is already installed.',
       );
     }
+  });
+
+  it('uses an internal staging directory inside modulesRoot', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'familietools-install-test-'));
+
+    cleanupPaths.push(root);
+
+    const modulesRoot = path.join(root, 'modules');
+
+    const archive = createArchive({
+      'module.json': JSON.stringify(createValidManifest()),
+      'dist/backend/index.js': 'export default {};',
+    });
+
+    await installModulePackage(archive, {
+      modulesRoot,
+    });
+
+    const stagingRoot = path.join(modulesRoot, '.staging');
+
+    const stat = await fs.stat(stagingRoot);
+
+    expect(stat.isDirectory()).toBe(true);
+
+    const entries = await fs.readdir(stagingRoot);
+
+    expect(entries).toHaveLength(0);
   });
 });

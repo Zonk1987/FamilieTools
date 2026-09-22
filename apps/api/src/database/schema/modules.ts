@@ -1,34 +1,45 @@
-import { boolean, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
-export const modules = pgTable('modules', {
-  id: uuid('id').defaultRandom().primaryKey(),
+export const modules = pgTable(
+  'modules',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
 
-  key: text('key').notNull().unique(),
+    moduleId: text('module_id').notNull(),
 
-  name: text('name').notNull(),
+    version: text('version').notNull(),
 
-  description: text('description'),
+    name: text('name').notNull(),
 
-  isEnabled: boolean('is_enabled').default(true).notNull(),
+    description: text('description'),
 
-  isSystem: boolean('is_system').default(false).notNull(),
+    publisher: text('publisher').notNull(),
 
-  isRequired: boolean('is_required').default(false).notNull(),
+    installationPath: text('installation_path').notNull(),
 
-  defaultEnabledForFamilies: boolean('default_enabled_for_families').default(true).notNull(),
+    packageSha256: text('package_sha256').notNull(),
 
-  createdAt: timestamp('created_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
+    installSource: text('install_source').default('local').notNull(),
 
-  updatedAt: timestamp('updated_at', {
-    withTimezone: true,
-  })
-    .defaultNow()
-    .notNull(),
-});
+    manifest: jsonb('manifest').$type<Record<string, unknown>>().notNull(),
+
+    isEnabled: boolean('is_enabled').default(true).notNull(),
+
+    installedAt: timestamp('installed_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp('updated_at', {
+      withTimezone: true,
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [uniqueIndex('modules_module_id_version_unique').on(table.moduleId, table.version)],
+);
 
 export type Module = typeof modules.$inferSelect;
+
 export type NewModule = typeof modules.$inferInsert;

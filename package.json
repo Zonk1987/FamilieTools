@@ -10,9 +10,9 @@
     "dev:web": "pnpm --filter ./apps/web dev",
     "dev:api": "pnpm --filter ./apps/api dev",
     "dev": "pnpm -r --parallel --filter ./apps/web --filter ./apps/api run dev",
-    "build": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run build",
-    "test": "pnpm --filter ./apps/api test && pnpm --filter ./apps/web test",
-    "check": "pnpm format:check && pnpm -r --filter ./apps/web --filter ./apps/api --if-present run check",
+    "build": "pnpm -r --filter ./apps/web --filter ./apps/api --filter ./packages/module-schema --filter ./packages/module-package --if-present run build",
+    "test": "pnpm --filter ./packages/module-schema test && pnpm --filter ./packages/module-package test && pnpm --filter ./apps/api test && pnpm --filter ./apps/web test",
+    "check": "pnpm format:check && pnpm --filter ./packages/module-package check && pnpm --filter ./packages/module-package check:test && pnpm -r --filter ./apps/web --filter ./apps/api --if-present run check",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

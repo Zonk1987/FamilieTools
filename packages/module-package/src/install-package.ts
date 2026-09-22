@@ -6,7 +6,6 @@ import type { ModulePackageInspectionOptions } from './types.js';
 
 export interface InstallModulePackageOptions {
   modulesRoot: string;
-  tempRoot: string;
   inspection?: ModulePackageInspectionOptions;
 }
 
@@ -37,16 +36,35 @@ export async function installModulePackage(
   archive: Uint8Array,
   options: InstallModulePackageOptions,
 ): Promise<InstalledModulePackage> {
+  const archiveSnapshot = Uint8Array.from(archive);
+
   await fs.mkdir(options.modulesRoot, {
     recursive: true,
   });
 
-  const extracted = await extractModulePackage(archive, {
-    tempRoot: options.tempRoot,
+  /*
+   * Staging lives inside modulesRoot so the final rename always
+   * stays on the same filesystem / volume.
+   */
+  const stagingRoot = path.join(options.modulesRoot, '.staging');
+
+  await fs.mkdir(stagingRoot, {
+    recursive: true,
+  });
+
+  /*
+   * extractModulePackage itself creates the unique temporary
+   * extraction directory inside stagingRoot.
+   *
+   * Do NOT create another mkdtemp directory here.
+   */
+  const extracted = await extractModulePackage(archiveSnapshot, {
+    tempRoot: stagingRoot,
     inspection: options.inspection,
   });
 
   const moduleId = extracted.inspection.manifest.id;
+
   const version = extracted.inspection.manifest.version;
 
   const moduleRoot = path.join(options.modulesRoot, moduleId);
@@ -65,7 +83,7 @@ export async function installModulePackage(
 
     /*
      * mkdir without recursive is atomic.
-     * Only one concurrent installer can create this lock directory.
+     * Only one installer can acquire this version lock.
      */
     try {
       await fs.mkdir(lockPath);
@@ -78,14 +96,14 @@ export async function installModulePackage(
       throw error;
     }
 
-    /*
-     * Once we own the lock, no competing installer for the same
-     * module/version can reach this section.
-     */
     if (await pathExists(installationPath)) {
       throw new Error(`Module "${moduleId}" version "${version}" is already installed.`);
     }
 
+    /*
+     * extractionPath and installationPath are both below
+     * modulesRoot, so this rename stays on the same filesystem.
+     */
     await fs.rename(extracted.extractionPath, installationPath);
 
     installationCompleted = true;
@@ -97,8 +115,10 @@ export async function installModulePackage(
     };
   } finally {
     /*
-     * If the installation failed before the atomic move,
-     * remove the temporary extraction directory.
+     * On failure the extracted package must not remain in staging.
+     *
+     * On success rename() already moved the directory away, so
+     * this cleanup is unnecessary.
      */
     if (!installationCompleted) {
       await fs.rm(extracted.extractionPath, {
@@ -107,9 +127,6 @@ export async function installModulePackage(
       });
     }
 
-    /*
-     * Always release our installation lock.
-     */
     if (lockAcquired) {
       await fs.rm(lockPath, {
         recursive: true,

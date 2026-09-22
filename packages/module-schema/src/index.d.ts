@@ -112,3 +112,7 @@ export type ModuleManifestValidationResult =
     };
 
 export function validateModuleManifest(manifest: unknown): ModuleManifestValidationResult;
+
+export function isValidModuleId(value: unknown): value is string;
+
+export function isValidModuleVersion(value: unknown): value is string;

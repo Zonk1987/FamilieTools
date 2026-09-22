@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { validateModuleId } from './validate-module-identity.js';
+import semver from 'semver';
+
+import { validateModuleId, validateModuleVersion } from './validate-module-identity.js';
 
 export async function listInstalledModuleVersions(
   modulesRoot: string,
@@ -24,8 +26,13 @@ export async function listInstalledModuleVersions(
     throw error;
   }
 
-  return entries
+  const versions = entries
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-    .map((entry) => entry.name)
-    .sort();
+    .map((entry) => {
+      validateModuleVersion(entry.name);
+
+      return entry.name;
+    });
+
+  return versions.sort((a, b) => semver.compare(a, b));
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { DatabaseService, type DatabaseExecutor } from '../database/database.service.js';
 import { modules, type Module, type NewModule } from '../database/schema/index.js';
@@ -30,13 +30,25 @@ export class ModulesRepository {
     return module ?? null;
   }
 
-  async findByKey(
-    key: string,
+  async findByModuleIdAndVersion(
+    moduleId: string,
+    version: string,
     database: DatabaseExecutor = this.databaseService.db,
   ): Promise<Module | null> {
-    const [module] = await database.select().from(modules).where(eq(modules.key, key)).limit(1);
+    const [module] = await database
+      .select()
+      .from(modules)
+      .where(and(eq(modules.moduleId, moduleId), eq(modules.version, version)))
+      .limit(1);
 
     return module ?? null;
+  }
+
+  async findByModuleId(
+    moduleId: string,
+    database: DatabaseExecutor = this.databaseService.db,
+  ): Promise<Module[]> {
+    return database.select().from(modules).where(eq(modules.moduleId, moduleId));
   }
 
   async findAll(database: DatabaseExecutor = this.databaseService.db): Promise<Module[]> {
@@ -50,7 +62,16 @@ export class ModulesRepository {
   async update(
     id: string,
     data: Partial<
-      Pick<NewModule, 'name' | 'description' | 'isEnabled' | 'defaultEnabledForFamilies'>
+      Pick<
+        NewModule,
+        | 'name'
+        | 'description'
+        | 'isEnabled'
+        | 'installationPath'
+        | 'packageSha256'
+        | 'installSource'
+        | 'manifest'
+      >
     >,
     database: DatabaseExecutor = this.databaseService.db,
   ): Promise<Module | null> {

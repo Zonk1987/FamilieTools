@@ -2,7 +2,6 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 
 import { RequirePlatformCapability } from '../platform-auth/require-platform-capability.decorator.js';
 import { CreateModuleDto } from './dto/create-module.dto.js';
-import { SetModuleDefaultDto } from './dto/set-module-default.dto.js';
 import { SetModuleEnabledDto } from './dto/set-module-enabled.dto.js';
 import { UpdateModuleDto } from './dto/update-module.dto.js';
 import { ModulesService } from './modules.service.js';
@@ -45,12 +44,6 @@ export class ModulesController {
   @RequirePlatformCapability('platform.modules.manage')
   async setModuleEnabled(@Param('id') id: string, @Body() body: SetModuleEnabledDto) {
     return this.modulesService.setModuleEnabled(id, body.enabled);
-  }
-
-  @Patch(':id/default')
-  @RequirePlatformCapability('platform.modules.manage')
-  async setModuleDefault(@Param('id') id: string, @Body() body: SetModuleDefaultDto) {
-    return this.modulesService.setDefaultEnabledForFamilies(id, body.enabled);
   }
 
   @Delete(':id')

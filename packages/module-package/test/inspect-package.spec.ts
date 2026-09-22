@@ -230,4 +230,52 @@ describe('inspectModulePackage', () => {
 
     expect(entry?.sha256).toBe(expectedHash);
   });
+
+  it('rejects archive paths that collide after separator normalization', () => {
+    const archive = createArchive({
+      'module.json': JSON.stringify(createValidManifest()),
+      'dist/widget.js': 'first',
+      'dist\\widget.js': 'second',
+    });
+
+    expect(() => inspectModulePackage(archive)).toThrow(
+      'Module package contains colliding archive path: "dist\\widget.js".',
+    );
+  });
+
+  it('rejects archive paths that differ only by letter case', () => {
+    const archive = createArchive({
+      'module.json': JSON.stringify(createValidManifest()),
+      'dist/Widget.js': 'first',
+      'dist/widget.js': 'second',
+    });
+
+    expect(() => inspectModulePackage(archive)).toThrow(
+      'Module package contains colliding archive path: "dist/widget.js".',
+    );
+  });
+
+  it('rejects a file path that conflicts with a child path', () => {
+    const archive = createArchive({
+      'module.json': JSON.stringify(createValidManifest()),
+      assets: 'this is a file',
+      'assets/icon.png': 'fake image',
+    });
+
+    expect(() => inspectModulePackage(archive)).toThrow(
+      'Module package contains file/directory path conflict: "assets/icon.png".',
+    );
+  });
+
+  it('rejects a file path that conflicts with an existing child path', () => {
+    const archive = createArchive({
+      'module.json': JSON.stringify(createValidManifest()),
+      'assets/icon.png': 'fake image',
+      assets: 'this is a file',
+    });
+
+    expect(() => inspectModulePackage(archive)).toThrow(
+      'Module package contains file/directory path conflict: "assets".',
+    );
+  });
 });

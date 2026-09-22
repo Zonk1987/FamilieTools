@@ -5,15 +5,20 @@ import { ModulesService } from './modules.service.js';
 
 function createModule(overrides = {}) {
   return {
-    id: 'module-1',
-    key: 'calendar',
+    id: 'module-row-1',
+    moduleId: 'org.familietools.calendar',
+    version: '1.0.0',
     name: 'Calendar',
     description: null,
+    publisher: 'FamilieTools',
+    installationPath: '/modules/org.familietools.calendar/1.0.0',
+    packageSha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    installSource: 'local',
+    manifest: {
+      manifestVersion: 1,
+    },
     isEnabled: true,
-    isSystem: false,
-    isRequired: false,
-    defaultEnabledForFamilies: true,
-    createdAt: new Date(),
+    installedAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
   };
@@ -27,7 +32,8 @@ function createDependencies() {
   const modulesRepository = {
     create: vi.fn(),
     findById: vi.fn(),
-    findByKey: vi.fn(),
+    findByModuleIdAndVersion: vi.fn(),
+    findByModuleId: vi.fn(),
     findAll: vi.fn(),
     findEnabled: vi.fn(),
     update: vi.fn(),
@@ -48,36 +54,49 @@ function createDependencies() {
     service,
     tx,
     modulesRepository,
-    databaseService,
   };
 }
 
 describe('ModulesService', () => {
-  it('creates a module with a normalized key', async () => {
+  it('creates an installed module registry entry', async () => {
     const dependencies = createDependencies();
 
-    dependencies.modulesRepository.findByKey.mockResolvedValue(null);
+    dependencies.modulesRepository.findByModuleIdAndVersion.mockResolvedValue(null);
 
-    const createdModule = createModule({
-      key: 'baby_tracking',
-      name: 'Baby Tracking',
-    });
+    const createdModule = createModule();
 
     dependencies.modulesRepository.create.mockResolvedValue(createdModule);
 
     const result = await dependencies.service.createModule({
-      key: '  Baby Tracking  ',
-      name: '  Baby Tracking  ',
+      moduleId: ' org.familietools.calendar ',
+      version: ' 1.0.0 ',
+      name: ' Calendar ',
+      description: ' Shared calendar ',
+      publisher: ' FamilieTools ',
+      installationPath: ' /modules/org.familietools.calendar/1.0.0 ',
+      packageSha256: ' 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef ',
+      manifest: {
+        manifestVersion: 1,
+      },
     });
+
+    expect(dependencies.modulesRepository.findByModuleIdAndVersion).toHaveBeenCalledWith(
+      'org.familietools.calendar',
+      '1.0.0',
+      dependencies.tx,
+    );
 
     expect(dependencies.modulesRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        key: 'baby_tracking',
-        name: 'Baby Tracking',
+        moduleId: 'org.familietools.calendar',
+        version: '1.0.0',
+        name: 'Calendar',
+        description: 'Shared calendar',
+        publisher: 'FamilieTools',
+        installationPath: '/modules/org.familietools.calendar/1.0.0',
+        packageSha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        installSource: 'local',
         isEnabled: true,
-        isSystem: false,
-        isRequired: false,
-        defaultEnabledForFamilies: true,
       }),
       dependencies.tx,
     );
@@ -85,66 +104,29 @@ describe('ModulesService', () => {
     expect(result).toEqual(createdModule);
   });
 
-  it('rejects a duplicate module key', async () => {
+  it('rejects a duplicate module version', async () => {
     const dependencies = createDependencies();
 
-    dependencies.modulesRepository.findByKey.mockResolvedValue(createModule());
+    dependencies.modulesRepository.findByModuleIdAndVersion.mockResolvedValue(createModule());
 
     await expect(
       dependencies.service.createModule({
-        key: 'calendar',
-        name: 'Another Calendar',
+        moduleId: 'org.familietools.calendar',
+        version: '1.0.0',
+        name: 'Calendar',
+        publisher: 'FamilieTools',
+        installationPath: '/modules/org.familietools.calendar/1.0.0',
+        packageSha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        manifest: {
+          manifestVersion: 1,
+        },
       }),
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(dependencies.modulesRepository.create).not.toHaveBeenCalled();
   });
 
-  it('forces required modules to be enabled', async () => {
-    const dependencies = createDependencies();
-
-    dependencies.modulesRepository.findByKey.mockResolvedValue(null);
-
-    dependencies.modulesRepository.create.mockImplementation(async (data) => ({
-      id: 'module-1',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      ...data,
-    }));
-
-    await dependencies.service.createModule({
-      key: 'core',
-      name: 'Core',
-      isEnabled: false,
-      isRequired: true,
-    });
-
-    expect(dependencies.modulesRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isEnabled: true,
-        isRequired: true,
-      }),
-      dependencies.tx,
-    );
-  });
-
-  it('does not allow disabling a required module', async () => {
-    const dependencies = createDependencies();
-
-    dependencies.modulesRepository.findById.mockResolvedValue(
-      createModule({
-        isRequired: true,
-      }),
-    );
-
-    await expect(dependencies.service.setModuleEnabled('module-1', false)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-
-    expect(dependencies.modulesRepository.update).not.toHaveBeenCalled();
-  });
-
-  it('allows disabling a non-required module', async () => {
+  it('allows disabling an installed module', async () => {
     const dependencies = createDependencies();
 
     const module = createModule();
@@ -156,10 +138,10 @@ describe('ModulesService', () => {
       isEnabled: false,
     });
 
-    const result = await dependencies.service.setModuleEnabled('module-1', false);
+    const result = await dependencies.service.setModuleEnabled('module-row-1', false);
 
     expect(dependencies.modulesRepository.update).toHaveBeenCalledWith(
-      'module-1',
+      'module-row-1',
       {
         isEnabled: false,
       },
@@ -169,51 +151,69 @@ describe('ModulesService', () => {
     expect(result.isEnabled).toBe(false);
   });
 
-  it('does not allow deleting a system module', async () => {
+  it('lists all installed versions for a module ID', async () => {
     const dependencies = createDependencies();
 
-    dependencies.modulesRepository.findById.mockResolvedValue(
+    const modules = [
+      createModule(),
       createModule({
-        isSystem: true,
+        id: 'module-row-2',
+        version: '1.1.0',
       }),
+    ];
+
+    dependencies.modulesRepository.findByModuleId.mockResolvedValue(modules);
+
+    const result = await dependencies.service.getModuleVersions('org.familietools.calendar');
+
+    expect(dependencies.modulesRepository.findByModuleId).toHaveBeenCalledWith(
+      'org.familietools.calendar',
     );
 
-    await expect(dependencies.service.deleteModule('module-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-
-    expect(dependencies.modulesRepository.delete).not.toHaveBeenCalled();
+    expect(result).toEqual(modules);
   });
 
-  it('does not allow deleting a required module', async () => {
+  it('returns a specific installed module version', async () => {
     const dependencies = createDependencies();
 
-    dependencies.modulesRepository.findById.mockResolvedValue(
-      createModule({
-        isRequired: true,
-      }),
+    const module = createModule();
+
+    dependencies.modulesRepository.findByModuleIdAndVersion.mockResolvedValue(module);
+
+    const result = await dependencies.service.getModuleByVersion(
+      'org.familietools.calendar',
+      '1.0.0',
     );
 
-    await expect(dependencies.service.deleteModule('module-1')).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-
-    expect(dependencies.modulesRepository.delete).not.toHaveBeenCalled();
+    expect(result).toEqual(module);
   });
 
-  it('deletes a normal module', async () => {
+  it('throws when a module version does not exist', async () => {
+    const dependencies = createDependencies();
+
+    dependencies.modulesRepository.findByModuleIdAndVersion.mockResolvedValue(null);
+
+    await expect(
+      dependencies.service.getModuleByVersion('org.familietools.calendar', '9.9.9'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('deletes an installed module registry entry', async () => {
     const dependencies = createDependencies();
 
     dependencies.modulesRepository.findById.mockResolvedValue(createModule());
 
     dependencies.modulesRepository.delete.mockResolvedValue(true);
 
-    await expect(dependencies.service.deleteModule('module-1')).resolves.toBeUndefined();
+    await expect(dependencies.service.deleteModule('module-row-1')).resolves.toBeUndefined();
 
-    expect(dependencies.modulesRepository.delete).toHaveBeenCalledWith('module-1', dependencies.tx);
+    expect(dependencies.modulesRepository.delete).toHaveBeenCalledWith(
+      'module-row-1',
+      dependencies.tx,
+    );
   });
 
-  it('throws when requesting an unknown module', async () => {
+  it('throws when requesting an unknown registry entry', async () => {
     const dependencies = createDependencies();
 
     dependencies.modulesRepository.findById.mockResolvedValue(null);

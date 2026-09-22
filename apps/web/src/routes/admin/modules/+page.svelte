@@ -2,16 +2,12 @@
   import { onMount } from 'svelte';
 
   import {
-    Baby,
     Blocks,
-    CalendarDays,
-    Camera,
     FileArchive,
     Link2,
     MoreHorizontal,
     PackageOpen,
     Search,
-    ShoppingCart,
     Store,
     Upload,
     X,
@@ -19,17 +15,21 @@
 
   import AdminCard from '$lib/admin/AdminCard.svelte';
   import StatusBadge from '$lib/admin/StatusBadge.svelte';
+  import { apiClient } from '$lib/api/client';
 
   type ModuleDto = {
     id: string;
-    key: string;
+    moduleId: string;
+    version: string;
     name: string;
     description: string | null;
+    publisher: string;
+    installationPath: string;
+    packageSha256: string;
+    installSource: string;
+    manifest: Record<string, unknown>;
     isEnabled: boolean;
-    isSystem: boolean;
-    isRequired: boolean;
-    defaultEnabledForFamilies: boolean;
-    createdAt: string;
+    installedAt: string;
     updatedAt: string;
   };
 
@@ -42,26 +42,17 @@
   let actionError = $state<string | null>(null);
 
   let searchQuery = $state('');
-  let filter = $state<'all' | 'enabled' | 'disabled' | 'default'>('all');
+  let filter = $state<'all' | 'enabled' | 'disabled'>('all');
 
   let showInstallDialog = $state(false);
   let selectedPackage = $state<File | null>(null);
   let installerMessage = $state<string | null>(null);
 
-  const iconMap = {
-    calendar: CalendarDays,
-    shopping: ShoppingCart,
-    baby_tracking: Baby,
-    photos: Camera,
-  };
-
-  function getModuleIcon(key: string) {
-    return iconMap[key as keyof typeof iconMap] ?? Blocks;
+  function getModuleIcon() {
+    return Blocks;
   }
 
   let enabledCount = $derived(modules.filter((module) => module.isEnabled).length);
-
-  let defaultCount = $derived(modules.filter((module) => module.defaultEnabledForFamilies).length);
 
   let filteredModules = $derived(
     modules.filter((module) => {
@@ -70,14 +61,15 @@
       const matchesSearch =
         query.length === 0 ||
         module.name.toLowerCase().includes(query) ||
-        module.key.toLowerCase().includes(query) ||
+        module.moduleId.toLowerCase().includes(query) ||
+        module.version.toLowerCase().includes(query) ||
+        module.publisher.toLowerCase().includes(query) ||
         module.description?.toLowerCase().includes(query);
 
       const matchesFilter =
         filter === 'all' ||
         (filter === 'enabled' && module.isEnabled) ||
-        (filter === 'disabled' && !module.isEnabled) ||
-        (filter === 'default' && module.defaultEnabledForFamilies);
+        (filter === 'disabled' && !module.isEnabled);
 
       return matchesSearch && matchesFilter;
     }),
@@ -117,20 +109,41 @@
     installerMessage = 'The module installer backend is not connected yet.';
   }
 
+  function getApiErrorMessage(apiError: unknown): string {
+    if (typeof apiError === 'object' && apiError !== null && 'message' in apiError) {
+      const message = (
+        apiError as {
+          message?: unknown;
+        }
+      ).message;
+
+      if (typeof message === 'string') {
+        return message;
+      }
+
+      if (Array.isArray(message) && message.every((entry) => typeof entry === 'string')) {
+        return message.join(', ');
+      }
+    }
+
+    return 'Unknown API error.';
+  }
+
   async function loadModules() {
     loading = true;
     error = null;
 
     try {
-      const response = await fetch('http://localhost:3000/api/admin/modules');
+      const { data, error: apiError } = await apiClient.GET('/api/admin/modules', {});
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      if (apiError || !data) {
+        throw new Error(getApiErrorMessage(apiError));
       }
 
-      modules = await response.json();
+      modules = data as ModuleDto[];
     } catch (cause) {
       console.error('Failed to load modules', cause);
+
       error = 'Modules could not be loaded.';
     } finally {
       loading = false;
@@ -143,85 +156,33 @@
     actionError = null;
   }
 
-  async function getErrorMessage(response: Response) {
-    let message = `HTTP ${response.status}`;
-
-    try {
-      const responseBody = await response.json();
-
-      if (typeof responseBody?.message === 'string') {
-        message = responseBody.message;
-      } else if (Array.isArray(responseBody?.message)) {
-        message = responseBody.message.join(', ');
-      }
-    } catch {
-      // Ignore invalid or empty error responses.
-    }
-
-    return message;
-  }
-
   async function setModuleEnabled(module: ModuleDto, isEnabled: boolean) {
-    if (module.isRequired && !isEnabled) {
-      actionError = 'Required modules cannot be disabled.';
-      openMenuId = null;
-      return;
-    }
-
     updatingModuleId = module.id;
     actionError = null;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/admin/modules/${module.id}/enabled`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
+      const { error: apiError } = await apiClient.PATCH('/api/admin/modules/{id}/enabled', {
+        params: {
+          path: {
+            id: module.id,
+          },
         },
-        body: JSON.stringify({
+        body: {
           enabled: isEnabled,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response));
+      if (apiError) {
+        throw new Error(getApiErrorMessage(apiError));
       }
 
       openMenuId = null;
+
       await loadModules();
     } catch (cause) {
       console.error('Failed to update module status', cause);
 
       actionError = cause instanceof Error ? cause.message : 'Module status could not be updated.';
-    } finally {
-      updatingModuleId = null;
-    }
-  }
-
-  async function setModuleDefault(module: ModuleDto, defaultEnabledForFamilies: boolean) {
-    updatingModuleId = module.id;
-    actionError = null;
-
-    try {
-      const response = await fetch(`http://localhost:3000/api/admin/modules/${module.id}/default`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          enabled: defaultEnabledForFamilies,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await getErrorMessage(response));
-      }
-
-      openMenuId = null;
-      await loadModules();
-    } catch (cause) {
-      console.error('Failed to update module default', cause);
-
-      actionError = cause instanceof Error ? cause.message : 'Module default could not be updated.';
     } finally {
       updatingModuleId = null;
     }
@@ -279,13 +240,13 @@
 <div class="modules-page">
   <section class="page-header">
     <div>
-      <span class="page-header__eyebrow"> Platform configuration </span>
+      <span class="page-header__eyebrow">Platform configuration</span>
 
       <h1>Modules</h1>
 
       <p>
-        Manage the features available on this FamilieTools instance and control which modules are
-        enabled for new families by default.
+        Manage the modules installed on this FamilieTools instance and control whether they are
+        currently enabled.
       </p>
     </div>
 
@@ -303,7 +264,7 @@
         </div>
 
         <div>
-          <span>Total modules</span>
+          <span>Installed modules</span>
           <strong>{modules.length}</strong>
         </div>
       </div>
@@ -321,19 +282,6 @@
         </div>
       </div>
     </AdminCard>
-
-    <AdminCard>
-      <div class="summary-card">
-        <div class="summary-card__icon">
-          <span class="default-symbol">D</span>
-        </div>
-
-        <div>
-          <span>Default for families</span>
-          <strong>{defaultCount}</strong>
-        </div>
-      </div>
-    </AdminCard>
   </section>
 
   <AdminCard>
@@ -341,7 +289,7 @@
       <div class="toolbar__title">
         <div>
           <h2>Installed modules</h2>
-          <p>Configure built-in and installed platform features.</p>
+          <p>View and manage module packages installed on this server.</p>
         </div>
 
         <StatusBadge label={`${enabledCount} active`} tone="success" />
@@ -363,7 +311,6 @@
           <option value="all">All modules</option>
           <option value="enabled">Enabled</option>
           <option value="disabled">Disabled</option>
-          <option value="default">Default</option>
         </select>
       </div>
 
@@ -381,15 +328,15 @@
         <div class="state-message state-message--error">
           <strong>{error}</strong>
 
-          <button type="button" onclick={loadModules}> Try again </button>
+          <button type="button" onclick={loadModules}>Try again</button>
         </div>
       {:else if modules.length === 0}
         <div class="state-message">No modules are installed.</div>
       {:else if filteredModules.length === 0}
         <div class="state-message">No modules match your search or filter.</div>
       {:else}
-        {#each filteredModules as module (module.key)}
-          {@const ModuleIcon = getModuleIcon(module.key)}
+        {#each filteredModules as module (module.id)}
+          {@const ModuleIcon = getModuleIcon()}
 
           <article class="module-row">
             <div class="module-row__identity">
@@ -400,27 +347,22 @@
               <div class="module-info">
                 <div class="module-info__title">
                   <strong>{module.name}</strong>
-
-                  {#if module.isSystem}
-                    <span class="system-label"> System </span>
-                  {/if}
-
-                  {#if module.isRequired}
-                    <span class="required-label"> Required </span>
-                  {/if}
                 </div>
 
                 <p>
                   {module.description ?? 'No description available.'}
                 </p>
 
-                <code>{module.key}</code>
+                <div class="module-info__metadata">
+                  <code>{module.moduleId}</code>
+                  <span>v{module.version}</span>
+                </div>
               </div>
             </div>
 
             <div class="module-row__settings">
               <div class="setting-column">
-                <span class="setting-column__label"> Status </span>
+                <span class="setting-column__label">Status</span>
 
                 <StatusBadge
                   label={module.isEnabled ? 'Enabled' : 'Disabled'}
@@ -429,13 +371,18 @@
               </div>
 
               <div class="setting-column">
-                <span class="setting-column__label"> New families </span>
+                <span class="setting-column__label">Publisher</span>
 
-                <span
-                  class="default-state"
-                  class:default-state--enabled={module.defaultEnabledForFamilies}
-                >
-                  {module.defaultEnabledForFamilies ? 'Enabled by default' : 'Not enabled'}
+                <span class="module-detail">
+                  {module.publisher}
+                </span>
+              </div>
+
+              <div class="setting-column">
+                <span class="setting-column__label">Source</span>
+
+                <span class="module-detail">
+                  {module.installSource}
                 </span>
               </div>
 
@@ -456,9 +403,8 @@
                     {#if module.isEnabled}
                       <button
                         class="module-menu__item"
-                        class:module-menu__item--disabled={module.isRequired}
                         type="button"
-                        disabled={module.isRequired || updatingModuleId === module.id}
+                        disabled={updatingModuleId === module.id}
                         onclick={() => setModuleEnabled(module, false)}
                       >
                         {#if updatingModuleId === module.id}
@@ -467,10 +413,6 @@
                           Disable module
                         {/if}
                       </button>
-
-                      {#if module.isRequired}
-                        <div class="module-menu__hint">Required modules cannot be disabled.</div>
-                      {/if}
                     {:else}
                       <button
                         class="module-menu__item"
@@ -482,36 +424,6 @@
                           Updating...
                         {:else}
                           Enable module
-                        {/if}
-                      </button>
-                    {/if}
-
-                    <div class="module-menu__separator"></div>
-
-                    {#if module.defaultEnabledForFamilies}
-                      <button
-                        class="module-menu__item"
-                        type="button"
-                        disabled={updatingModuleId === module.id}
-                        onclick={() => setModuleDefault(module, false)}
-                      >
-                        {#if updatingModuleId === module.id}
-                          Updating...
-                        {:else}
-                          Disable for new families
-                        {/if}
-                      </button>
-                    {:else}
-                      <button
-                        class="module-menu__item"
-                        type="button"
-                        disabled={updatingModuleId === module.id}
-                        onclick={() => setModuleDefault(module, true)}
-                      >
-                        {#if updatingModuleId === module.id}
-                          Updating...
-                        {:else}
-                          Enable for new families
                         {/if}
                       </button>
                     {/if}
@@ -543,7 +455,7 @@
       >
         <div class="install-dialog__header">
           <div>
-            <span class="install-dialog__eyebrow"> Module installer </span>
+            <span class="install-dialog__eyebrow">Module installer</span>
 
             <h2 id="install-dialog-title">Install module</h2>
 
@@ -570,7 +482,7 @@
               <div>
                 <strong>Upload module package</strong>
 
-                <span class="available-label"> Available </span>
+                <span class="available-label">Available</span>
               </div>
 
               <p>
@@ -622,7 +534,7 @@
               <div>
                 <strong>Module catalog</strong>
 
-                <span class="coming-label"> Coming later </span>
+                <span class="coming-label">Coming later</span>
               </div>
 
               <p>Browse compatible modules published for FamilieTools.</p>
@@ -638,7 +550,7 @@
               <div>
                 <strong>Install from URL</strong>
 
-                <span class="coming-label"> Coming later </span>
+                <span class="coming-label">Coming later</span>
               </div>
 
               <p>Install a trusted module package from a remote source.</p>
@@ -759,7 +671,7 @@
 
   .summary-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
 
@@ -791,11 +703,6 @@
     border-radius: 999px;
     background: #22c55e;
     box-shadow: 0 0 0 4px rgb(34 197 94 / 0.12);
-  }
-
-  .default-symbol {
-    font-size: 0.78rem;
-    font-weight: 800;
   }
 
   .summary-card > div:last-child {
@@ -960,32 +867,18 @@
     font-size: 0.82rem;
   }
 
-  .system-label,
-  .required-label {
-    padding: 0.15rem 0.4rem;
-    border-radius: 999px;
-    font-size: 0.58rem;
-    font-weight: 650;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .system-label {
-    background: #f1f5f9;
-    color: #64748b;
-  }
-
-  .required-label {
-    background: #fff7ed;
-    color: #c2410c;
-  }
-
   .module-info p {
     max-width: 42rem;
     margin: 0.2rem 0 0.3rem;
     color: var(--admin-text-muted);
     font-size: 0.7rem;
     line-height: 1.35;
+  }
+
+  .module-info__metadata {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
   }
 
   .module-info code {
@@ -995,6 +888,12 @@
     color: #64748b;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.6rem;
+  }
+
+  .module-info__metadata span {
+    color: var(--admin-text-soft);
+    font-size: 0.62rem;
+    font-weight: 600;
   }
 
   .module-row__settings {
@@ -1019,14 +918,14 @@
     text-transform: uppercase;
   }
 
-  .default-state {
+  .module-detail {
+    max-width: 12rem;
+    overflow: hidden;
     color: var(--admin-text-muted);
     font-size: 0.68rem;
     font-weight: 550;
-  }
-
-  .default-state--enabled {
-    color: #15803d;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .module-menu {
@@ -1059,15 +958,11 @@
     top: calc(100% + 0.35rem);
     right: 0;
     z-index: 30;
-
     width: 14rem;
     padding: 0.35rem;
-
     border: 1px solid var(--admin-border);
     border-radius: 0.7rem;
-
     background: white;
-
     box-shadow:
       0 8px 24px rgb(15 23 42 / 0.08),
       0 2px 6px rgb(15 23 42 / 0.05);
@@ -1099,23 +994,9 @@
     background: var(--admin-surface-subtle);
   }
 
-  .module-menu__item:disabled,
-  .module-menu__item--disabled {
+  .module-menu__item:disabled {
     color: var(--admin-text-soft);
     cursor: not-allowed;
-  }
-
-  .module-menu__separator {
-    height: 1px;
-    margin: 0.3rem 0.2rem;
-    background: var(--admin-border);
-  }
-
-  .module-menu__hint {
-    padding: 0.4rem 0.65rem 0.5rem;
-    color: var(--admin-text-soft);
-    font-size: 0.62rem;
-    line-height: 1.35;
   }
 
   .state-message {
@@ -1151,46 +1032,34 @@
     position: fixed;
     inset: 0;
     z-index: 100;
-
     display: grid;
     place-items: center;
-
     padding: 1.5rem;
   }
 
   .dialog-backdrop {
     position: absolute;
     inset: 0;
-
     width: 100%;
     height: 100%;
-
     padding: 0;
     border: 0;
-
     background: rgb(15 23 42 / 0.38);
     backdrop-filter: blur(3px);
-
     cursor: default;
   }
 
   .install-dialog {
     position: relative;
     z-index: 1;
-
     width: min(100%, 40rem);
     max-height: calc(100dvh - 3rem);
-
     display: flex;
     flex-direction: column;
-
     overflow: hidden;
-
     border: 1px solid var(--admin-border);
     border-radius: 1rem;
-
     background: white;
-
     box-shadow:
       0 24px 60px rgb(15 23 42 / 0.16),
       0 8px 24px rgb(15 23 42 / 0.08);
@@ -1201,9 +1070,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-
     padding: 1.25rem 1.25rem 1rem;
-
     border-bottom: 1px solid var(--admin-border);
   }
 
@@ -1249,9 +1116,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-
     padding: 1.25rem;
-
     overflow-y: auto;
   }
 
@@ -1259,9 +1124,7 @@
     display: flex;
     align-items: flex-start;
     gap: 0.9rem;
-
     padding: 1rem;
-
     border: 1px solid var(--admin-border);
     border-radius: 0.8rem;
   }
@@ -1278,13 +1141,10 @@
   .installer-option__icon {
     width: 2.5rem;
     height: 2.5rem;
-
     display: grid;
     flex-shrink: 0;
     place-items: center;
-
     border-radius: 0.7rem;
-
     background: var(--admin-primary-soft);
     color: var(--admin-primary);
   }
@@ -1344,18 +1204,13 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-
     margin-top: 0.8rem;
     padding: 0 0.75rem;
-
     border: 1px dashed #cbd5e1;
     border-radius: 0.65rem;
-
     background: #f8fafc;
     color: var(--admin-text-muted);
-
     font-size: 0.7rem;
-
     cursor: pointer;
   }
 
@@ -1378,12 +1233,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-
     margin-top: 0.65rem;
     padding: 0.6rem 0.7rem;
-
     border-radius: 0.6rem;
-
     background: #f8fafc;
   }
 
@@ -1420,11 +1272,8 @@
     display: flex;
     align-items: flex-start;
     gap: 0.7rem;
-
     padding: 0.8rem;
-
     border-radius: 0.7rem;
-
     background: #f8fafc;
     color: var(--admin-text-muted);
   }
@@ -1447,13 +1296,10 @@
 
   .installer-message {
     padding: 0.7rem 0.8rem;
-
     border: 1px solid #fed7aa;
     border-radius: 0.65rem;
-
     background: #fff7ed;
     color: #9a3412;
-
     font-size: 0.68rem;
   }
 
@@ -1461,28 +1307,21 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.65rem;
-
     padding: 1rem 1.25rem;
-
     border-top: 1px solid var(--admin-border);
     background: #fbfcfe;
   }
 
   .secondary-button {
     min-height: 2.6rem;
-
     padding: 0 0.95rem;
-
     border: 1px solid var(--admin-border);
     border-radius: 0.7rem;
-
     background: white;
     color: var(--admin-text);
-
     font: inherit;
     font-size: 0.78rem;
     font-weight: 600;
-
     cursor: pointer;
   }
 
@@ -1537,4 +1376,3 @@
     }
   }
 </style>
-

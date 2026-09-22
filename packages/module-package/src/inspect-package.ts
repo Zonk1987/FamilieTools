@@ -1,6 +1,7 @@
 import { validateModuleManifest, type ModuleManifest } from '@familietools/module-schema';
 import { strFromU8, unzipSync } from 'fflate';
 import { createHash } from 'node:crypto';
+
 import type {
   ModulePackageEntry,
   ModulePackageInspection,
@@ -12,14 +13,19 @@ export const MAX_ARCHIVE_SIZE = 128 * 1024 * 1024;
 export const MAX_FILE_COUNT = 10_000;
 export const MAX_TOTAL_UNCOMPRESSED_SIZE = 512 * 1024 * 1024;
 
+interface InspectedModulePackageContents {
+  inspection: ModulePackageInspection;
+  files: Record<string, Uint8Array>;
+}
+
 function sha256(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
-export function inspectModulePackage(
+export function inspectModulePackageContents(
   archive: Uint8Array,
   options: ModulePackageInspectionOptions = {},
-): ModulePackageInspection {
+): InspectedModulePackageContents {
   const maxArchiveSize = options.maxArchiveSize ?? MAX_ARCHIVE_SIZE;
   const maxFileCount = options.maxFileCount ?? MAX_FILE_COUNT;
   const maxTotalUncompressedSize = options.maxTotalUncompressedSize ?? MAX_TOTAL_UNCOMPRESSED_SIZE;
@@ -32,6 +38,34 @@ export function inspectModulePackage(
 
   let declaredFileCount = 0;
   let declaredUncompressedSize = 0;
+
+  const seenArchivePaths = new Set<string>();
+
+  function registerArchivePath(rawPath: string, normalizedPath: string): void {
+    const collisionKey = normalizedPath.toLowerCase();
+
+    if (seenArchivePaths.has(collisionKey)) {
+      throw new Error(`Module package contains colliding archive path: "${rawPath}".`);
+    }
+
+    const segments = collisionKey.split('/');
+
+    for (let index = 1; index < segments.length; index += 1) {
+      const parentPath = segments.slice(0, index).join('/');
+
+      if (seenArchivePaths.has(parentPath)) {
+        throw new Error(`Module package contains file/directory path conflict: "${rawPath}".`);
+      }
+    }
+
+    for (const existingPath of seenArchivePaths) {
+      if (existingPath.startsWith(`${collisionKey}/`)) {
+        throw new Error(`Module package contains file/directory path conflict: "${rawPath}".`);
+      }
+    }
+
+    seenArchivePaths.add(collisionKey);
+  }
 
   const files = unzipSync(archive, {
     filter(file) {
@@ -47,6 +81,8 @@ export function inspectModulePackage(
         throw new Error(`Unsafe archive entry "${file.name}": ${pathValidation.reason}`);
       }
 
+      registerArchivePath(file.name, pathValidation.normalizedPath);
+
       declaredUncompressedSize += file.originalSize;
 
       if (declaredUncompressedSize > maxTotalUncompressedSize) {
@@ -58,6 +94,7 @@ export function inspectModulePackage(
   });
 
   const entries: ModulePackageEntry[] = [];
+
   let totalUncompressedSize = 0;
 
   for (const [rawPath, content] of Object.entries(files)) {
@@ -107,6 +144,7 @@ export function inspectModulePackage(
     const details = manifestValidation.errors
       .map((error) => {
         const location = error.instancePath || '/';
+
         const message = error.message ?? 'validation error';
 
         return `${location} ${message}`;
@@ -116,7 +154,7 @@ export function inspectModulePackage(
     throw new Error(`Invalid module manifest: ${details}`);
   }
 
-  return {
+  const inspection: ModulePackageInspection = {
     entries,
     fileCount: entries.length,
     totalUncompressedSize,
@@ -124,4 +162,16 @@ export function inspectModulePackage(
     manifest: manifest as ModuleManifest,
     packageSha256,
   };
+
+  return {
+    inspection,
+    files,
+  };
+}
+
+export function inspectModulePackage(
+  archive: Uint8Array,
+  options: ModulePackageInspectionOptions = {},
+): ModulePackageInspection {
+  return inspectModulePackageContents(archive, options).inspection;
 }

@@ -31,7 +31,14 @@ export class SetupService {
 
       await this.platformStateService.setState('initializing', tx);
 
-      const user = await this.usersService.createUser(input.owner.displayName, tx);
+      const user = await this.usersService.createUser(
+        {
+          loginName: input.owner.loginName,
+          displayName: input.owner.displayName,
+          password: input.owner.password,
+        },
+        tx,
+      );
 
       const family = await this.familiesService.createFamily(input.family.name, tx);
 

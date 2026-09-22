@@ -1,5 +1,6 @@
 import { Body, Controller, Get, NotFoundException, Param, Post } from '@nestjs/common';
 import { ApiCreatedResponse, ApiNotFoundResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { RequirePlatformCapability } from '../platform-auth/require-platform-capability.decorator.js';
 
 import { CreateFamilyDto } from './dto/create-family.dto.js';
 import { FamiliesService } from './families.service.js';
@@ -10,6 +11,7 @@ export class FamiliesController {
   constructor(private readonly familiesService: FamiliesService) {}
 
   @Post()
+  @RequirePlatformCapability('platform.families.manage')
   @ApiCreatedResponse({
     description: 'Family created successfully.',
   })
@@ -18,6 +20,7 @@ export class FamiliesController {
   }
 
   @Get(':id')
+  @RequirePlatformCapability('platform.families.read')
   @ApiOkResponse({
     description: 'Family found.',
   })

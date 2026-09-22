@@ -3,10 +3,18 @@ import { describe, expect, it } from 'vitest';
 import { PLATFORM_CAPABILITY_METADATA_KEY } from '../platform-auth/require-platform-capability.decorator.js';
 import { ModulesController } from './modules.controller.js';
 
-function getCapability(methodName: keyof ModulesController) {
-  const handler = ModulesController.prototype[methodName] as unknown as object;
+function getMethod(methodName: keyof ModulesController): Function {
+  const descriptor = Object.getOwnPropertyDescriptor(ModulesController.prototype, methodName);
 
-  return Reflect.getMetadata(PLATFORM_CAPABILITY_METADATA_KEY, handler);
+  if (!descriptor || typeof descriptor.value !== 'function') {
+    throw new Error(`Method "${String(methodName)}" not found on ModulesController.`);
+  }
+
+  return descriptor.value;
+}
+
+function getCapability(methodName: keyof ModulesController) {
+  return Reflect.getMetadata(PLATFORM_CAPABILITY_METADATA_KEY, getMethod(methodName));
 }
 
 describe('ModulesController capability metadata', () => {
@@ -24,8 +32,6 @@ describe('ModulesController capability metadata', () => {
     expect(getCapability('updateModule')).toBe('platform.modules.manage');
 
     expect(getCapability('setModuleEnabled')).toBe('platform.modules.manage');
-
-    expect(getCapability('setModuleDefault')).toBe('platform.modules.manage');
 
     expect(getCapability('deleteModule')).toBe('platform.modules.manage');
   });

@@ -5,12 +5,21 @@
 
   let {
     children,
+    data,
   }: {
     children: Snippet;
+    data: {
+      user: {
+        id: string;
+        loginName: string;
+        displayName: string;
+        createdAt: string;
+        updatedAt: string;
+      };
+    };
   } = $props();
 </script>
 
-<AdminShell>
+<AdminShell user={data.user}>
   {@render children()}
 </AdminShell>
-

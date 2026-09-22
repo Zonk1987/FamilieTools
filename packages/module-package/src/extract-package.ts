@@ -1,10 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { unzipSync } from 'fflate';
-
 import type { ModulePackageInspection, ModulePackageInspectionOptions } from './types.js';
-import { inspectModulePackage } from './inspect-package.js';
+import { inspectModulePackageContents } from './inspect-package.js';
 import { validateArchivePath } from './validate-archive-path.js';
 import { verifyExtractedPackage } from './verify-extracted-package.js';
 
@@ -22,7 +20,7 @@ export async function extractModulePackage(
   archive: Uint8Array,
   options: ExtractModulePackageOptions,
 ): Promise<ExtractedModulePackage> {
-  const inspection = inspectModulePackage(archive, options.inspection);
+  const { inspection, files } = inspectModulePackageContents(archive, options.inspection);
 
   await fs.mkdir(options.tempRoot, {
     recursive: true,
@@ -31,8 +29,6 @@ export async function extractModulePackage(
   const extractionPath = await fs.mkdtemp(path.join(options.tempRoot, 'familietools-module-'));
 
   try {
-    const files = unzipSync(archive);
-
     for (const [rawPath, content] of Object.entries(files)) {
       const validation = validateArchivePath(rawPath);
 

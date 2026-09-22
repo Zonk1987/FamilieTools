@@ -5,7 +5,9 @@ import { SetupService } from './setup.service.js';
 
 const setupInput = {
   owner: {
+    loginName: 'sebastian',
     displayName: 'Sebastian',
+    password: 'very-secure-password',
   },
   instance: {
     name: 'FamilieTools',
@@ -34,6 +36,7 @@ function createDependencies() {
   const usersService = {
     createUser: vi.fn().mockResolvedValue({
       id: 'user-1',
+      loginName: 'sebastian',
       displayName: 'Sebastian',
     }),
   };
@@ -104,7 +107,14 @@ describe('SetupService', () => {
       dependencies.tx,
     );
 
-    expect(dependencies.usersService.createUser).toHaveBeenCalledWith('Sebastian', dependencies.tx);
+    expect(dependencies.usersService.createUser).toHaveBeenCalledWith(
+      {
+        loginName: 'sebastian',
+        displayName: 'Sebastian',
+        password: 'very-secure-password',
+      },
+      dependencies.tx,
+    );
 
     expect(dependencies.familiesService.createFamily).toHaveBeenCalledWith(
       'Familie Haupt',
@@ -150,6 +160,7 @@ describe('SetupService', () => {
       status: 'ready',
       user: {
         id: 'user-1',
+        loginName: 'sebastian',
         displayName: 'Sebastian',
       },
       family: {
@@ -170,7 +181,14 @@ describe('SetupService', () => {
       'Simulated family creation failure',
     );
 
-    expect(dependencies.usersService.createUser).toHaveBeenCalledWith('Sebastian', dependencies.tx);
+    expect(dependencies.usersService.createUser).toHaveBeenCalledWith(
+      {
+        loginName: 'sebastian',
+        displayName: 'Sebastian',
+        password: 'very-secure-password',
+      },
+      dependencies.tx,
+    );
 
     expect(dependencies.familiesService.createFamily).toHaveBeenCalledWith(
       'Familie Haupt',

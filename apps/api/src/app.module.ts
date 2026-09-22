@@ -14,6 +14,12 @@ import { InstanceSettingsModule } from './instance-settings/instance-settings.mo
 import { ThemesModule } from './themes/themes.module.js';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module.js';
 import { ModulesModule } from './modules/modules.module.js';
+import { AuthModule } from './auth/auth.module.js';
+
+import { APP_GUARD } from '@nestjs/core';
+
+import { SessionAuthGuard } from './auth/session-auth.guard.js';
+import { PlatformCapabilityGuard } from './platform-auth/platform-capability.guard.js';
 
 @Module({
   imports: [
@@ -22,6 +28,7 @@ import { ModulesModule } from './modules/modules.module.js';
     ThemesModule,
     HealthModule,
     UserPreferencesModule,
+    AuthModule,
     ModulesModule,
     SetupModule,
     UsersModule,
@@ -31,6 +38,10 @@ import { ModulesModule } from './modules/modules.module.js';
     PlatformAuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useExisting: SessionAuthGuard },
+    { provide: APP_GUARD, useExisting: PlatformCapabilityGuard },
+  ],
 })
 export class AppModule {}

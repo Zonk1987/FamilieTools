@@ -7,8 +7,16 @@
 
   let {
     children,
+    user,
   }: {
     children: Snippet;
+    user: {
+      id: string;
+      loginName: string;
+      displayName: string;
+      createdAt: string;
+      updatedAt: string;
+    };
   } = $props();
 </script>
 
@@ -17,7 +25,7 @@
     <AdminSidebar />
 
     <div class="admin-main">
-      <AdminTopbar />
+      <AdminTopbar {user} />
 
       <main class="admin-content">
         {@render children()}
@@ -54,4 +62,3 @@
     }
   }
 </style>
-

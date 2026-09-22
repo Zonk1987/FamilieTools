@@ -1,26 +1,55 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 
-import { NewUser, User, UsersRepository } from './users.repository.js';
 import type { DatabaseExecutor } from '../database/database.service.js';
+import { type User, UsersRepository } from './users.repository.js';
+import { PasswordService } from './password.service.js';
+
+export type CreateUserInput = {
+  loginName: string;
+  displayName: string;
+  password: string;
+};
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly passwordService: PasswordService,
+  ) {}
 
-  async createUser(displayName: string, database?: DatabaseExecutor): Promise<User> {
-    const normalizedDisplayName = displayName.trim();
+  async createUser(input: CreateUserInput, database?: DatabaseExecutor): Promise<User> {
+    const loginName = input.loginName.trim().toLowerCase();
 
-    if (!normalizedDisplayName) {
-      throw new Error('Display name must not be empty');
+    const displayName = input.displayName.trim();
+
+    if (!loginName) {
+      throw new ConflictException('Login name must not be empty');
     }
 
-    const data: NewUser = {
-      displayName: normalizedDisplayName,
-    };
+    if (!displayName) {
+      throw new ConflictException('Display name must not be empty');
+    }
 
-    return database
-      ? this.usersRepository.create(data, database)
-      : this.usersRepository.create(data);
+    if (input.password.length < 12) {
+      throw new ConflictException('Password must contain at least 12 characters');
+    }
+
+    const existing = await this.usersRepository.findByLoginName(loginName, database);
+
+    if (existing) {
+      throw new ConflictException('Login name already exists');
+    }
+
+    const passwordHash = await this.passwordService.hash(input.password);
+
+    return this.usersRepository.create(
+      {
+        loginName,
+        displayName,
+        passwordHash,
+      },
+      database,
+    );
   }
 
   async findUserById(id: string, database?: DatabaseExecutor): Promise<User | null> {

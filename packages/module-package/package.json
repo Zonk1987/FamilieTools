@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "@familietools/module-schema": "workspace:*",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "semver": "^7.8.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
+    "@types/semver": "^7.8.0",
     "typescript": "^6.0.0",
     "vitest": "^5.0.1"
   }

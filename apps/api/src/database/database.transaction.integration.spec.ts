@@ -1,43 +1,36 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import 'dotenv/config';
+
 import { eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { randomUUID } from 'node:crypto';
+import { afterAll, describe, expect, it } from 'vitest';
 
-import { users } from './schema/index.js';
-
-const TEST_DATABASE_URL =
-  'postgresql://familietools:familietools_dev@localhost:5432/familietools_test';
+import { DatabaseService } from './database.service.js';
+import { families } from './schema/index.js';
 
 describe('Database transaction integration', () => {
-  let pool: Pool;
-  let database: ReturnType<typeof drizzle>;
-
-  beforeAll(() => {
-    pool = new Pool({
-      connectionString: TEST_DATABASE_URL,
-    });
-
-    database = drizzle(pool);
-  });
+  const databaseService = new DatabaseService();
 
   afterAll(async () => {
-    await pool.end();
+    await databaseService.onApplicationShutdown();
   });
 
   it('rolls back inserted data when the transaction fails', async () => {
-    const displayName = `Rollback Test ${Date.now()}`;
+    const familyName = `Rollback Test ${randomUUID()}`;
 
     await expect(
-      database.transaction(async (tx) => {
-        await tx.insert(users).values({
-          displayName,
+      databaseService.transaction(async (transaction) => {
+        await transaction.insert(families).values({
+          name: familyName,
         });
 
         throw new Error('Simulated transaction failure');
       }),
     ).rejects.toThrow('Simulated transaction failure');
 
-    const result = await database.select().from(users).where(eq(users.displayName, displayName));
+    const result = await databaseService.db
+      .select()
+      .from(families)
+      .where(eq(families.name, familyName));
 
     expect(result).toHaveLength(0);
   });

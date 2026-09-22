@@ -7,4 +7,5 @@ const baseUrl =
 
 export const apiClient = createClient<paths>({
   baseUrl,
+  credentials: 'include',
 });

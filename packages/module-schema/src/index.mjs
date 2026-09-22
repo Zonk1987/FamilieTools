@@ -13,12 +13,32 @@ const schemaPath = path.resolve(__dirname, '..', 'module-manifest.schema.json');
 
 const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
 
+const MODULE_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)+$/;
+
+export function isValidModuleId(value) {
+  return typeof value === 'string' && MODULE_ID_PATTERN.test(value);
+}
+
+export function isValidModuleVersion(value) {
+  return typeof value === 'string' && semver.valid(value) !== null;
+}
+
 const ajv = new Ajv2020({
   allErrors: true,
   strict: true,
 });
 
 addFormats(ajv);
+
+ajv.addFormat('module-id', {
+  type: 'string',
+  validate: isValidModuleId,
+});
+
+ajv.addFormat('semver-version', {
+  type: 'string',
+  validate: isValidModuleVersion,
+});
 
 ajv.addFormat('semver-range', {
   type: 'string',

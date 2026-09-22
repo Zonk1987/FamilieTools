@@ -1,0 +1,26 @@
+{
+  "manifestVersion": 1,
+  "id": "org.familietools.test",
+  "name": "Test Module",
+  "version": "1.0.0",
+  "publisher": {
+    "id": "org.familietools",
+    "name": "FamilieTools"
+  },
+  "compatibility": {
+    "platform": ">=1.0.0",
+    "moduleApi": ">=1.0.0"
+  },
+  "entrypoints": {
+    "frontend": "dist/index.js"
+  },
+  "contributions": {
+    "routes": [
+      {
+        "id": "test.route",
+        "path": "/test",
+        "component": "C:\\outside\\route.js"
+      }
+    ]
+  }
+}

@@ -5,13 +5,16 @@ import type { Module, NewModule } from '../database/schema/index.js';
 import { ModulesRepository } from './modules.repository.js';
 
 export type CreateModuleInput = {
-  key: string;
+  moduleId: string;
+  version: string;
   name: string;
   description?: string | null;
+  publisher: string;
+  installationPath: string;
+  packageSha256: string;
+  installSource?: string;
+  manifest: Record<string, unknown>;
   isEnabled?: boolean;
-  isSystem?: boolean;
-  isRequired?: boolean;
-  defaultEnabledForFamilies?: boolean;
 };
 
 @Injectable()
@@ -22,34 +25,58 @@ export class ModulesService {
   ) {}
 
   async createModule(input: CreateModuleInput): Promise<Module> {
-    const key = this.normalizeKey(input.key);
+    const moduleId = input.moduleId.trim();
+    const version = input.version.trim();
     const name = input.name.trim();
+    const publisher = input.publisher.trim();
+    const installationPath = input.installationPath.trim();
+    const packageSha256 = input.packageSha256.trim();
+    const installSource = input.installSource?.trim() || 'local';
 
-    if (!key) {
-      throw new ConflictException('Module key must not be empty');
+    if (!moduleId) {
+      throw new ConflictException('Module ID must not be empty');
+    }
+
+    if (!version) {
+      throw new ConflictException('Module version must not be empty');
     }
 
     if (!name) {
       throw new ConflictException('Module name must not be empty');
     }
 
+    if (!publisher) {
+      throw new ConflictException('Module publisher must not be empty');
+    }
+
+    if (!installationPath) {
+      throw new ConflictException('Module installation path must not be empty');
+    }
+
+    if (!packageSha256) {
+      throw new ConflictException('Module package SHA-256 must not be empty');
+    }
+
     return this.databaseService.transaction(async (tx) => {
-      const existing = await this.modulesRepository.findByKey(key, tx);
+      const existing = await this.modulesRepository.findByModuleIdAndVersion(moduleId, version, tx);
 
       if (existing) {
-        throw new ConflictException(`Module key "${key}" already exists`);
+        throw new ConflictException(
+          `Module "${moduleId}" version "${version}" is already installed`,
+        );
       }
 
-      const isRequired = input.isRequired ?? false;
-
       const data: NewModule = {
-        key,
+        moduleId,
+        version,
         name,
         description: input.description?.trim() || null,
-        isEnabled: isRequired ? true : (input.isEnabled ?? true),
-        isSystem: input.isSystem ?? false,
-        isRequired,
-        defaultEnabledForFamilies: input.defaultEnabledForFamilies ?? true,
+        publisher,
+        installationPath,
+        packageSha256,
+        installSource,
+        manifest: input.manifest,
+        isEnabled: input.isEnabled ?? true,
       };
 
       return this.modulesRepository.create(data, tx);
@@ -66,13 +93,15 @@ export class ModulesService {
     return module;
   }
 
-  async getModuleByKey(key: string): Promise<Module> {
-    const normalizedKey = this.normalizeKey(key);
+  async getModuleVersions(moduleId: string): Promise<Module[]> {
+    return this.modulesRepository.findByModuleId(moduleId);
+  }
 
-    const module = await this.modulesRepository.findByKey(normalizedKey);
+  async getModuleByVersion(moduleId: string, version: string): Promise<Module> {
+    const module = await this.modulesRepository.findByModuleIdAndVersion(moduleId, version);
 
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Module version not found');
     }
 
     return module;
@@ -94,38 +123,10 @@ export class ModulesService {
         throw new NotFoundException('Module not found');
       }
 
-      if (!enabled && module.isRequired) {
-        throw new ConflictException('Required modules cannot be disabled');
-      }
-
       const updated = await this.modulesRepository.update(
         id,
         {
           isEnabled: enabled,
-        },
-        tx,
-      );
-
-      if (!updated) {
-        throw new NotFoundException('Module not found');
-      }
-
-      return updated;
-    });
-  }
-
-  async setDefaultEnabledForFamilies(id: string, enabled: boolean): Promise<Module> {
-    return this.databaseService.transaction(async (tx) => {
-      const module = await this.modulesRepository.findById(id, tx);
-
-      if (!module) {
-        throw new NotFoundException('Module not found');
-      }
-
-      const updated = await this.modulesRepository.update(
-        id,
-        {
-          defaultEnabledForFamilies: enabled,
         },
         tx,
       );
@@ -183,29 +184,11 @@ export class ModulesService {
         throw new NotFoundException('Module not found');
       }
 
-      if (module.isSystem) {
-        throw new ConflictException('System modules cannot be deleted');
-      }
-
-      if (module.isRequired) {
-        throw new ConflictException('Required modules cannot be deleted');
-      }
-
       const deleted = await this.modulesRepository.delete(id, tx);
 
       if (!deleted) {
         throw new NotFoundException('Module not found');
       }
     });
-  }
-
-  private normalizeKey(value: string): string {
-    return value
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '');
   }
 }

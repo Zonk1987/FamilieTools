@@ -20,6 +20,102 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/admin/themes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ThemesController_getThemes'];
+    put?: never;
+    post: operations['ThemesController_createTheme'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/admin/themes/enabled': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ThemesController_getEnabledThemes'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/admin/themes/default': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ThemesController_getDefaultTheme'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/admin/themes/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ThemesController_getThemeById'];
+    put?: never;
+    post?: never;
+    delete: operations['ThemesController_deleteTheme'];
+    options?: never;
+    head?: never;
+    patch: operations['ThemesController_updateTheme'];
+    trace?: never;
+  };
+  '/api/admin/themes/{id}/enabled': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['ThemesController_setThemeEnabled'];
+    trace?: never;
+  };
+  '/api/admin/themes/{id}/default': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['ThemesController_setDefaultTheme'];
+    trace?: never;
+  };
   '/api/health': {
     parameters: {
       query?: never;
@@ -60,6 +156,150 @@ export interface paths {
       cookie?: never;
     };
     get: operations['UsersController_findById'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['AuthController_login'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/logout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['AuthController_logout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['AuthController_me'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/admin/modules': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ModulesController_getModules'];
+    put?: never;
+    post: operations['ModulesController_createModule'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/admin/modules/enabled': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ModulesController_getEnabledModules'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/admin/modules/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ModulesController_getModuleById'];
+    put?: never;
+    post?: never;
+    delete: operations['ModulesController_deleteModule'];
+    options?: never;
+    head?: never;
+    patch: operations['ModulesController_updateModule'];
+    trace?: never;
+  };
+  '/api/admin/modules/{id}/enabled': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['ModulesController_setModuleEnabled'];
+    trace?: never;
+  };
+  '/api/setup/initialize': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['SetupController_initializeSetup'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/setup/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['SetupController_getStatus'];
     put?: never;
     post?: never;
     delete?: never;
@@ -120,10 +360,88 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    CreateThemeDto: Record<string, never>;
+    UpdateThemeDto: Record<string, never>;
+    SetThemeEnabledDto: Record<string, never>;
     CreateUserDto: {
+      /** @example sebastian */
+      loginName: string;
       /** @example Sebastian */
       displayName: string;
+      /** @example correct-horse-battery-staple */
+      password: string;
     };
+    LoginDto: {
+      /** @example sebastian */
+      loginName: string;
+      /** @example correct-horse-battery-staple */
+      password: string;
+    };
+    CreateModuleDto: {
+      /** @example org.familietools.calendar */
+      moduleId: string;
+      /** @example 1.0.0 */
+      version: string;
+      /** @example Calendar */
+      name: string;
+      /** @example Shared family calendar and scheduling. */
+      description?: Record<string, never> | null;
+      /** @example FamilieTools */
+      publisher: string;
+      /** @example /data/modules/org.familietools.calendar/1.0.0 */
+      installationPath: string;
+      /** @example 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef */
+      packageSha256: string;
+      /**
+       * @default local
+       * @example local
+       */
+      installSource: string;
+      manifest: {
+        [key: string]: unknown;
+      };
+      /**
+       * @default true
+       * @example true
+       */
+      isEnabled: boolean;
+    };
+    UpdateModuleDto: {
+      /** @example Calendar */
+      name?: string;
+      /** @example Shared family calendar and scheduling. */
+      description?: Record<string, never> | null;
+    };
+    SetModuleEnabledDto: {
+      /** @example true */
+      enabled: boolean;
+    };
+    InitializeSetupOwnerDto: {
+      /** @example sebastian */
+      loginName: string;
+      /** @example Sebastian */
+      displayName: string;
+      /** @example correct-horse-battery-staple */
+      password: string;
+    };
+    InitializeSetupInstanceDto: {
+      /** @example FamilieTools */
+      name: string;
+      /** @example de */
+      defaultLanguage: string;
+      /** @example Europe/Berlin */
+      defaultTimezone: string;
+    };
+    InitializeSetupFamilyDto: {
+      /** @example Familie Haupt */
+      name: string;
+    };
+    InitializeSetupDto: {
+      owner: components['schemas']['InitializeSetupOwnerDto'];
+      instance: components['schemas']['InitializeSetupInstanceDto'];
+      family: components['schemas']['InitializeSetupFamilyDto'];
+    };
+    SetupStatusResponseDto: Record<string, never>;
     CreateFamilyDto: {
       /** @example Familie Haupt */
       name: string;
@@ -148,6 +466,181 @@ export interface operations {
       query?: never;
       header?: never;
       path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_getThemes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_createTheme: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateThemeDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_getEnabledThemes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_getDefaultTheme: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_getThemeById: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_deleteTheme: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_updateTheme: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateThemeDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_setThemeEnabled: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SetThemeEnabledDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ThemesController_setDefaultTheme: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
       cookie?: never;
     };
     requestBody?: never;
@@ -223,6 +716,257 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  AuthController_login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LoginDto'];
+      };
+    };
+    responses: {
+      /** @description Authentication successful. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid login credentials. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AuthController_logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Session ended successfully. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AuthController_me: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Returns the authenticated user. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentication required. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_getModules: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_createModule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateModuleDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_getEnabledModules: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_getModuleById: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_deleteModule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_updateModule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateModuleDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ModulesController_setModuleEnabled: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SetModuleEnabledDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SetupController_initializeSetup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InitializeSetupDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  SetupController_getStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SetupStatusResponseDto'];
+        };
       };
     };
   };

@@ -12,7 +12,7 @@ Official and third-party feature modules use the same package/runtime architectu
 
 ## Package model
 
-Modules use `.ftmodule` packages with a validated `manifest.json`. Published versions are immutable and use Semantic Versioning.
+Modules use `.ftmodule` packages with a validated `module.json`. Published versions are immutable and use Semantic Versioning.
 
 The manifest MUST describe:
 

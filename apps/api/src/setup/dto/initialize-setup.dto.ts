@@ -1,8 +1,24 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDefined, IsNotEmpty, IsString, MaxLength, ValidateNested } from 'class-validator';
+import {
+  IsDefined,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 
 export class InitializeSetupOwnerDto {
+  @ApiProperty({
+    example: 'sebastian',
+    maxLength: 64,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(64)
+  loginName!: string;
+
   @ApiProperty({
     example: 'Sebastian',
     maxLength: 120,
@@ -11,6 +27,17 @@ export class InitializeSetupOwnerDto {
   @IsNotEmpty()
   @MaxLength(120)
   displayName!: string;
+
+  @ApiProperty({
+    example: 'correct-horse-battery-staple',
+    minLength: 12,
+    maxLength: 200,
+    writeOnly: true,
+  })
+  @IsString()
+  @MinLength(12)
+  @MaxLength(200)
+  password!: string;
 }
 
 export class InitializeSetupInstanceDto {
