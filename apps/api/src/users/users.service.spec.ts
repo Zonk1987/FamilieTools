@@ -174,4 +174,79 @@ describe('UsersService', () => {
     expect(create).not.toHaveBeenCalled();
     expect(passwordService.hash).not.toHaveBeenCalled();
   });
+
+  it('maps a PostgreSQL unique violation during user creation to ConflictException', async () => {
+    const create = vi.fn().mockRejectedValue({
+      code: '23505',
+    });
+
+    const findById = vi.fn();
+
+    const findByLoginName = vi.fn().mockResolvedValue(null);
+
+    const usersRepository = {
+      create,
+      findById,
+      findByLoginName,
+    } as unknown as UsersRepository;
+
+    const passwordService = {
+      hash: vi.fn().mockResolvedValue('scrypt$salt$hash'),
+    };
+
+    const usersService = new UsersService(usersRepository, passwordService as never);
+
+    await expect(
+      usersService.createUser({
+        loginName: 'Sebastian',
+        displayName: 'Sebastian',
+        password: 'very-secure-password',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(findByLoginName).toHaveBeenCalledWith('sebastian', undefined);
+
+    expect(passwordService.hash).toHaveBeenCalledWith('very-secure-password');
+
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rethrows non-unique database errors during user creation', async () => {
+    const databaseError = {
+      code: '08006',
+      message: 'connection failure',
+    };
+
+    const create = vi.fn().mockRejectedValue(databaseError);
+
+    const findById = vi.fn();
+
+    const findByLoginName = vi.fn().mockResolvedValue(null);
+
+    const usersRepository = {
+      create,
+      findById,
+      findByLoginName,
+    } as unknown as UsersRepository;
+
+    const passwordService = {
+      hash: vi.fn().mockResolvedValue('scrypt$salt$hash'),
+    };
+
+    const usersService = new UsersService(usersRepository, passwordService as never);
+
+    await expect(
+      usersService.createUser({
+        loginName: 'sebastian',
+        displayName: 'Sebastian',
+        password: 'very-secure-password',
+      }),
+    ).rejects.toBe(databaseError);
+
+    expect(findByLoginName).toHaveBeenCalledWith('sebastian', undefined);
+
+    expect(passwordService.hash).toHaveBeenCalledWith('very-secure-password');
+
+    expect(create).toHaveBeenCalledTimes(1);
+  });
 });

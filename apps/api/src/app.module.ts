@@ -15,6 +15,9 @@ import { ThemesModule } from './themes/themes.module.js';
 import { UserPreferencesModule } from './user-preferences/user-preferences.module.js';
 import { ModulesModule } from './modules/modules.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { PlatformThrottlerGuard } from './security/platform-throttler.guard.js';
+import { CsrfOriginGuard } from './security/csrf-origin.guard.js';
 
 import { APP_GUARD } from '@nestjs/core';
 
@@ -24,6 +27,43 @@ import { PlatformCapabilityGuard } from './platform-auth/platform-capability.gua
 @Module({
   imports: [
     DatabaseModule,
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: 60_000,
+          limit: 120,
+        },
+        {
+          name: 'authIpBurst',
+          ttl: 60_000,
+          limit: 10,
+          blockDuration: 60_000,
+          skipIf: (context) => context.getHandler().name !== 'login',
+        },
+        {
+          name: 'authIpSustained',
+          ttl: 15 * 60_000,
+          limit: 30,
+          blockDuration: 15 * 60_000,
+          skipIf: (context) => context.getHandler().name !== 'login',
+        },
+        {
+          name: 'authAccountBurst',
+          ttl: 60_000,
+          limit: 8,
+          blockDuration: 60_000,
+          skipIf: (context) => context.getHandler().name !== 'login',
+        },
+        {
+          name: 'authAccountSustained',
+          ttl: 15 * 60_000,
+          limit: 20,
+          blockDuration: 5 * 60_000,
+          skipIf: (context) => context.getHandler().name !== 'login',
+        },
+      ],
+    }),
     PlatformStateModule,
     ThemesModule,
     HealthModule,
@@ -40,8 +80,10 @@ import { PlatformCapabilityGuard } from './platform-auth/platform-capability.gua
   controllers: [AppController],
   providers: [
     AppService,
+    { provide: APP_GUARD, useClass: PlatformThrottlerGuard },
     { provide: APP_GUARD, useExisting: SessionAuthGuard },
     { provide: APP_GUARD, useExisting: PlatformCapabilityGuard },
+    { provide: APP_GUARD, useClass: CsrfOriginGuard },
   ],
 })
 export class AppModule {}

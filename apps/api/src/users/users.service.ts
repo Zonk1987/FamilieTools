@@ -10,6 +10,15 @@ export type CreateUserInput = {
   password: string;
 };
 
+function isPostgresUniqueViolation(error: unknown): error is { code: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -42,14 +51,22 @@ export class UsersService {
 
     const passwordHash = await this.passwordService.hash(input.password);
 
-    return this.usersRepository.create(
-      {
-        loginName,
-        displayName,
-        passwordHash,
-      },
-      database,
-    );
+    try {
+      return await this.usersRepository.create(
+        {
+          loginName,
+          displayName,
+          passwordHash,
+        },
+        database,
+      );
+    } catch (error) {
+      if (isPostgresUniqueViolation(error)) {
+        throw new ConflictException('Login name already exists');
+      }
+
+      throw error;
+    }
   }
 
   async findUserById(id: string, database?: DatabaseExecutor): Promise<User | null> {

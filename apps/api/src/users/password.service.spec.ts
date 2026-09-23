@@ -25,4 +25,48 @@ describe('PasswordService', () => {
   it('rejects an invalid stored hash', async () => {
     await expect(service.verify('very-secure-password', 'invalid-hash')).resolves.toBe(false);
   });
+
+  it('rejects an excessive scrypt N parameter', async () => {
+    const service = new PasswordService();
+
+    const salt = Buffer.alloc(32).toString('base64url');
+    const hash = Buffer.alloc(64).toString('base64url');
+
+    const storedHash = `scrypt$1048577$8$1$${salt}$${hash}`;
+
+    await expect(service.verify('password', storedHash)).resolves.toBe(false);
+  });
+
+  it('rejects an excessive scrypt r parameter', async () => {
+    const service = new PasswordService();
+
+    const salt = Buffer.alloc(32).toString('base64url');
+    const hash = Buffer.alloc(64).toString('base64url');
+
+    const storedHash = `scrypt$16384$33$1$${salt}$${hash}`;
+
+    await expect(service.verify('password', storedHash)).resolves.toBe(false);
+  });
+
+  it('rejects an excessive scrypt p parameter', async () => {
+    const service = new PasswordService();
+
+    const salt = Buffer.alloc(32).toString('base64url');
+    const hash = Buffer.alloc(64).toString('base64url');
+
+    const storedHash = `scrypt$16384$8$17$${salt}$${hash}`;
+
+    await expect(service.verify('password', storedHash)).resolves.toBe(false);
+  });
+
+  it('rejects an invalid scrypt salt length', async () => {
+    const service = new PasswordService();
+
+    const salt = Buffer.alloc(16).toString('base64url');
+    const hash = Buffer.alloc(64).toString('base64url');
+
+    const storedHash = `scrypt$16384$8$1$${salt}$${hash}`;
+
+    await expect(service.verify('password', storedHash)).resolves.toBe(false);
+  });
 });

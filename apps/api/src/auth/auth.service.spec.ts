@@ -15,8 +15,9 @@ function createDependencies() {
   const authSessionsRepository = {
     create: vi.fn(),
     findValidByTokenHash: vi.fn(),
-    touch: vi.fn(),
+    touchIfStale: vi.fn(),
     deleteByTokenHash: vi.fn(),
+    deleteExpired: vi.fn(),
   };
 
   const service = new AuthService(
@@ -34,6 +35,51 @@ function createDependencies() {
 }
 
 describe('AuthService', () => {
+  it('accepts a session that is still inside the idle timeout', async () => {
+    const dependencies = createDependencies();
+
+    const now = Date.now();
+
+    dependencies.authSessionsRepository.findValidByTokenHash.mockResolvedValue({
+      sessionId: 'session-1',
+      userId: 'user-1',
+      loginName: 'sebastian',
+      displayName: 'Sebastian',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      expiresAt: new Date(now + 24 * 60 * 60 * 1000),
+      lastSeenAt: new Date(now - 24 * 60 * 60 * 1000),
+    });
+
+    await expect(dependencies.service.authenticate('session-token')).resolves.toEqual({
+      id: 'user-1',
+      loginName: 'sebastian',
+      displayName: 'Sebastian',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
+    expect(dependencies.authSessionsRepository.findValidByTokenHash).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Date),
+    );
+  });
+
+  it('returns null when the repository rejects an idle-expired session', async () => {
+    const dependencies = createDependencies();
+
+    dependencies.authSessionsRepository.findValidByTokenHash.mockResolvedValue(null);
+
+    await expect(dependencies.service.authenticate('session-token')).resolves.toBeNull();
+
+    expect(dependencies.authSessionsRepository.findValidByTokenHash).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Date),
+    );
+
+    expect(dependencies.authSessionsRepository.touchIfStale).not.toHaveBeenCalled();
+  });
+
   it('creates a session for valid credentials', async () => {
     const dependencies = createDependencies();
 
@@ -89,7 +135,10 @@ describe('AuthService', () => {
       dependencies.service.login('unknown', 'very-secure-password'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
-    expect(dependencies.passwordService.verify).not.toHaveBeenCalled();
+    expect(dependencies.passwordService.verify).toHaveBeenCalledWith(
+      'very-secure-password',
+      expect.stringMatching(/^scrypt\$16384\$8\$1\$/),
+    );
 
     expect(dependencies.authSessionsRepository.create).not.toHaveBeenCalled();
   });
@@ -115,8 +164,10 @@ describe('AuthService', () => {
     expect(dependencies.authSessionsRepository.create).not.toHaveBeenCalled();
   });
 
-  it('returns a user for a valid session token', async () => {
+  it('returns a user without touching a recently seen session', async () => {
     const dependencies = createDependencies();
+
+    const now = new Date();
 
     dependencies.authSessionsRepository.findValidByTokenHash.mockResolvedValue({
       sessionId: 'session-1',
@@ -125,16 +176,52 @@ describe('AuthService', () => {
       displayName: 'Sebastian',
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
       updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      expiresAt: new Date('2026-02-01T00:00:00.000Z'),
+      expiresAt: new Date('2026-12-01T00:00:00.000Z'),
+      lastSeenAt: new Date(now.getTime() - 5 * 60 * 1000),
     });
 
     const result = await dependencies.service.authenticate('session-token');
 
     expect(dependencies.authSessionsRepository.findValidByTokenHash).toHaveBeenCalledWith(
       expect.any(String),
+      expect.any(Date),
     );
 
-    expect(dependencies.authSessionsRepository.touch).toHaveBeenCalledWith('session-1');
+    expect(dependencies.authSessionsRepository.touchIfStale).not.toHaveBeenCalled();
+
+    expect(result).toEqual({
+      id: 'user-1',
+      loginName: 'sebastian',
+      displayName: 'Sebastian',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+  });
+
+  it('touches a stale session before returning the user', async () => {
+    const dependencies = createDependencies();
+
+    const now = new Date();
+
+    dependencies.authSessionsRepository.findValidByTokenHash.mockResolvedValue({
+      sessionId: 'session-1',
+      userId: 'user-1',
+      loginName: 'sebastian',
+      displayName: 'Sebastian',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      expiresAt: new Date('2026-12-01T00:00:00.000Z'),
+      lastSeenAt: new Date(now.getTime() - 20 * 60 * 1000),
+    });
+
+    const result = await dependencies.service.authenticate('session-token');
+
+    expect(dependencies.authSessionsRepository.touchIfStale).toHaveBeenCalledTimes(1);
+
+    expect(dependencies.authSessionsRepository.touchIfStale).toHaveBeenCalledWith(
+      'session-1',
+      expect.any(Date),
+    );
 
     expect(result).toEqual({
       id: 'user-1',
@@ -152,7 +239,7 @@ describe('AuthService', () => {
 
     await expect(dependencies.service.authenticate('invalid-token')).resolves.toBeNull();
 
-    expect(dependencies.authSessionsRepository.touch).not.toHaveBeenCalled();
+    expect(dependencies.authSessionsRepository.touchIfStale).not.toHaveBeenCalled();
   });
 
   it('removes a session during logout', async () => {
@@ -163,5 +250,17 @@ describe('AuthService', () => {
     expect(dependencies.authSessionsRepository.deleteByTokenHash).toHaveBeenCalledWith(
       expect.any(String),
     );
+  });
+
+  it('cleans up expired sessions', async () => {
+    const dependencies = createDependencies();
+
+    const now = new Date('2026-09-23T10:00:00.000Z');
+
+    dependencies.authSessionsRepository.deleteExpired.mockResolvedValue(3);
+
+    await expect(dependencies.service.cleanupExpiredSessions(now)).resolves.toBe(3);
+
+    expect(dependencies.authSessionsRepository.deleteExpired).toHaveBeenCalledWith(now);
   });
 });

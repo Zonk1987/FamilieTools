@@ -1,5 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 
+import { DatabaseService } from '../database/database.service.js';
 import { FamilyMembershipsService } from '../family-memberships/family-memberships.service.js';
 import { FamiliesService } from '../families/families.service.js';
 import { InstanceSettingsService } from '../instance-settings/instance-settings.service.js';
@@ -7,7 +8,6 @@ import { PlatformAuthService } from '../platform-auth/platform-auth.service.js';
 import { PlatformStateService } from '../platform-state/platform-state.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { InitializeSetupDto } from './dto/initialize-setup.dto.js';
-import { DatabaseService } from '../database/database.service.js';
 
 @Injectable()
 export class SetupService {
@@ -23,13 +23,11 @@ export class SetupService {
 
   async initialize(input: InitializeSetupDto) {
     return this.databaseService.transaction(async (tx) => {
-      const setupAllowed = await this.platformStateService.isSetupAllowed(tx);
+      const setupClaimed = await this.platformStateService.claimSetup(tx);
 
-      if (!setupAllowed) {
-        throw new ConflictException('Platform setup has already been completed');
+      if (!setupClaimed) {
+        throw new ConflictException('Platform setup has already been started or completed');
       }
-
-      await this.platformStateService.setState('initializing', tx);
 
       const user = await this.usersService.createUser(
         {

@@ -17,8 +17,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { AuthUserDto } from './dto/auth-user.dto.js';
 import { LoginResponseDto } from './dto/login-response.dto.js';
 import { LogoutResponseDto } from './dto/logout-response.dto.js';
-
-const SESSION_COOKIE_NAME = 'familietools_session';
+import { SESSION_COOKIE_NAME } from './auth.constants.js';
+import { getClearSessionCookieOptions, getSessionCookieOptions } from './session-cookie.js';
 
 type CookieOptions = {
   httpOnly?: boolean;
@@ -48,16 +48,6 @@ type RequestWithUser = CookieRequest & {
   };
 };
 
-function getCookieOptions(expires: Date): CookieOptions {
-  return {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    expires,
-  };
-}
-
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -81,7 +71,7 @@ export class AuthController {
   ) {
     const result = await this.authService.login(dto.loginName, dto.password);
 
-    reply.setCookie(SESSION_COOKIE_NAME, result.token, getCookieOptions(result.expiresAt));
+    reply.setCookie(SESSION_COOKIE_NAME, result.token, getSessionCookieOptions(result.expiresAt));
 
     return {
       user: result.user,
@@ -108,9 +98,7 @@ export class AuthController {
       await this.authService.logout(token);
     }
 
-    reply.clearCookie(SESSION_COOKIE_NAME, {
-      path: '/',
-    });
+    reply.clearCookie(SESSION_COOKIE_NAME, getClearSessionCookieOptions());
 
     return {
       success: true,

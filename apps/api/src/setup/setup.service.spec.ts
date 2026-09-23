@@ -25,7 +25,7 @@ function createDependencies() {
   };
 
   const platformStateService = {
-    isSetupAllowed: vi.fn().mockResolvedValue(true),
+    claimSetup: vi.fn().mockResolvedValue(true),
     setState: vi.fn().mockResolvedValue(undefined),
   };
 
@@ -92,20 +92,14 @@ function createDependencies() {
 }
 
 describe('SetupService', () => {
-  it('initializes the platform inside one transaction', async () => {
+  it('initializes the platform inside one transaction after atomically claiming setup', async () => {
     const dependencies = createDependencies();
 
     const result = await dependencies.service.initialize(setupInput);
 
     expect(dependencies.databaseService.transaction).toHaveBeenCalledTimes(1);
 
-    expect(dependencies.platformStateService.isSetupAllowed).toHaveBeenCalledWith(dependencies.tx);
-
-    expect(dependencies.platformStateService.setState).toHaveBeenNthCalledWith(
-      1,
-      'initializing',
-      dependencies.tx,
-    );
+    expect(dependencies.platformStateService.claimSetup).toHaveBeenCalledWith(dependencies.tx);
 
     expect(dependencies.usersService.createUser).toHaveBeenCalledWith(
       {
@@ -150,8 +144,9 @@ describe('SetupService', () => {
       dependencies.tx,
     );
 
-    expect(dependencies.platformStateService.setState).toHaveBeenNthCalledWith(
-      2,
+    expect(dependencies.platformStateService.setState).toHaveBeenCalledTimes(1);
+
+    expect(dependencies.platformStateService.setState).toHaveBeenCalledWith(
       'ready',
       dependencies.tx,
     );
@@ -170,6 +165,30 @@ describe('SetupService', () => {
     });
   });
 
+  it('rejects setup when another request already claimed it', async () => {
+    const dependencies = createDependencies();
+
+    dependencies.platformStateService.claimSetup.mockResolvedValueOnce(false);
+
+    await expect(dependencies.service.initialize(setupInput)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+
+    expect(dependencies.platformStateService.claimSetup).toHaveBeenCalledWith(dependencies.tx);
+
+    expect(dependencies.usersService.createUser).not.toHaveBeenCalled();
+
+    expect(dependencies.familiesService.createFamily).not.toHaveBeenCalled();
+
+    expect(dependencies.familyMembershipsService.addUserToFamily).not.toHaveBeenCalled();
+
+    expect(dependencies.platformAuthService.assignPlatformOwner).not.toHaveBeenCalled();
+
+    expect(dependencies.instanceSettingsService.set).not.toHaveBeenCalled();
+
+    expect(dependencies.platformStateService.setState).not.toHaveBeenCalled();
+  });
+
   it('stops setup when a transactional operation fails', async () => {
     const dependencies = createDependencies();
 
@@ -180,6 +199,8 @@ describe('SetupService', () => {
     await expect(dependencies.service.initialize(setupInput)).rejects.toThrow(
       'Simulated family creation failure',
     );
+
+    expect(dependencies.platformStateService.claimSetup).toHaveBeenCalledWith(dependencies.tx);
 
     expect(dependencies.usersService.createUser).toHaveBeenCalledWith(
       {
@@ -205,19 +226,5 @@ describe('SetupService', () => {
       'ready',
       dependencies.tx,
     );
-  });
-
-  it('rejects setup when the instance is already initialized', async () => {
-    const dependencies = createDependencies();
-
-    dependencies.platformStateService.isSetupAllowed.mockResolvedValueOnce(false);
-
-    await expect(dependencies.service.initialize(setupInput)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
-
-    expect(dependencies.usersService.createUser).not.toHaveBeenCalled();
-
-    expect(dependencies.familiesService.createFamily).not.toHaveBeenCalled();
   });
 });

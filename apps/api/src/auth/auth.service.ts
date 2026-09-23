@@ -6,6 +6,10 @@ import { UsersRepository } from '../users/users.repository.js';
 import { AuthSessionsRepository } from './auth-sessions.repository.js';
 
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TOUCH_INTERVAL_MS = 10 * 60 * 1000;
+const SESSION_IDLE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
+const DUMMY_PASSWORD_HASH =
+  'scrypt$16384$8$1$lEiN0nH-Rp0riOoyGugWioaHUE-NnL__ctR30z71WYE$lqybC6lSrQphUbe0DWbCj6DJQkHdeAJNdliujNL3sBXLgCjZIJOI5Gqfrn-oE_VzNLr3E3ZtIWjDv2wH1rFz7w';
 
 function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -24,13 +28,11 @@ export class AuthService {
 
     const user = await this.usersRepository.findByLoginName(normalizedLoginName);
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid login credentials');
-    }
+    const passwordHash = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
 
-    const passwordValid = await this.passwordService.verify(password, user.passwordHash);
+    const passwordValid = await this.passwordService.verify(password, passwordHash);
 
-    if (!passwordValid) {
+    if (!user || !passwordValid) {
       throw new UnauthorizedException('Invalid login credentials');
     }
 
@@ -62,13 +64,21 @@ export class AuthService {
   async authenticate(token: string) {
     const tokenHash = hashSessionToken(token);
 
-    const session = await this.authSessionsRepository.findValidByTokenHash(tokenHash);
+    const now = new Date();
+
+    const idleAfter = new Date(now.getTime() - SESSION_IDLE_TIMEOUT_MS);
+
+    const session = await this.authSessionsRepository.findValidByTokenHash(tokenHash, idleAfter);
 
     if (!session) {
       return null;
     }
 
-    await this.authSessionsRepository.touch(session.sessionId);
+    const staleBefore = new Date(now.getTime() - SESSION_TOUCH_INTERVAL_MS);
+
+    if (session.lastSeenAt < staleBefore) {
+      await this.authSessionsRepository.touchIfStale(session.sessionId, staleBefore);
+    }
 
     return {
       id: session.userId,
@@ -83,5 +93,9 @@ export class AuthService {
     const tokenHash = hashSessionToken(token);
 
     await this.authSessionsRepository.deleteByTokenHash(tokenHash);
+  }
+
+  async cleanupExpiredSessions(now: Date = new Date()): Promise<number> {
+    return this.authSessionsRepository.deleteExpired(now);
   }
 }

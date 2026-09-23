@@ -9,3 +9,7 @@ allowBuilds:
 dedupePeers: true
 dedupePeerDependents: true
 resolvePeersFromWorkspaceRoot: true
+
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12
+  '@sveltejs/kit>cookie': 0.7.2

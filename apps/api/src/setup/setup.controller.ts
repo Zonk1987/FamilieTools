@@ -33,7 +33,7 @@ export class SetupController {
 
     return {
       state,
-      setupAllowed: state === 'uninitialized' || state === 'initializing',
+      setupAllowed: state === 'uninitialized',
     };
   }
 }

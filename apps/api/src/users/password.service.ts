@@ -8,6 +8,10 @@ const SCRYPT_N = 16384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 
+const MAX_SCRYPT_N = 1 << 20;
+const MAX_SCRYPT_R = 32;
+const MAX_SCRYPT_P = 16;
+
 @Injectable()
 export class PasswordService {
   async hash(password: string): Promise<string> {
@@ -49,7 +53,10 @@ export class PasswordService {
         !Number.isSafeInteger(p) ||
         n <= 1 ||
         r <= 0 ||
-        p <= 0
+        p <= 0 ||
+        n > MAX_SCRYPT_N ||
+        r > MAX_SCRYPT_R ||
+        p > MAX_SCRYPT_P
       ) {
         return false;
       }
@@ -58,7 +65,7 @@ export class PasswordService {
 
       const expectedHash = Buffer.from(hashValue, 'base64url');
 
-      if (salt.length === 0 || expectedHash.length !== KEY_LENGTH) {
+      if (salt.length !== SALT_LENGTH || expectedHash.length !== KEY_LENGTH) {
         return false;
       }
 

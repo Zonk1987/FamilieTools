@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DatabaseExecutor } from '../database/database.service.js';
 
 import { DatabaseService } from '../database/database.service.js';
@@ -33,13 +33,26 @@ export class PlatformStateService {
         key: PLATFORM_STATE_KEY,
         initializationState: 'uninitialized',
       })
+      .onConflictDoNothing({
+        target: platformState.key,
+      })
       .returning();
 
-    if (!created) {
+    if (created) {
+      return created.initializationState;
+    }
+
+    const [concurrent] = await database
+      .select()
+      .from(platformState)
+      .where(eq(platformState.key, PLATFORM_STATE_KEY))
+      .limit(1);
+
+    if (!concurrent) {
       throw new Error('Failed to initialize platform state');
     }
 
-    return created.initializationState;
+    return concurrent.initializationState;
   }
 
   async isInitialized(database: DatabaseExecutor = this.databaseService.db): Promise<boolean> {
@@ -51,7 +64,29 @@ export class PlatformStateService {
   async isSetupAllowed(database: DatabaseExecutor = this.databaseService.db): Promise<boolean> {
     const state = await this.getState(database);
 
-    return state === 'uninitialized' || state === 'initializing';
+    return state === 'uninitialized';
+  }
+
+  async claimSetup(database: DatabaseExecutor = this.databaseService.db): Promise<boolean> {
+    await this.getState(database);
+
+    const [claimed] = await database
+      .update(platformState)
+      .set({
+        initializationState: 'initializing',
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(platformState.key, PLATFORM_STATE_KEY),
+          eq(platformState.initializationState, 'uninitialized'),
+        ),
+      )
+      .returning({
+        key: platformState.key,
+      });
+
+    return Boolean(claimed);
   }
 
   async setState(

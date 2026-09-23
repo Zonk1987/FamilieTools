@@ -163,7 +163,7 @@ describe('Authentication integration', () => {
 
     await agent.get('/api/auth/me').expect(200);
 
-    await agent.post('/api/auth/logout').expect(200);
+    await agent.post('/api/auth/logout').set('Origin', 'http://localhost:5173').expect(200);
 
     await agent.get('/api/auth/me').expect(401);
   });

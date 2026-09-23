@@ -19,6 +19,55 @@ function createSelectMock(result: unknown[]) {
 
   return {
     select,
+    from,
+    where,
+    limit,
+  };
+}
+
+function createInsertMock(result: unknown[]) {
+  const returning = vi.fn().mockResolvedValue(result);
+
+  const onConflictDoNothing = vi.fn().mockReturnValue({
+    returning,
+  });
+
+  const values = vi.fn().mockReturnValue({
+    onConflictDoNothing,
+  });
+
+  const insert = vi.fn().mockReturnValue({
+    values,
+  });
+
+  return {
+    insert,
+    values,
+    onConflictDoNothing,
+    returning,
+  };
+}
+
+function createUpdateMock(result: unknown[]) {
+  const returning = vi.fn().mockResolvedValue(result);
+
+  const where = vi.fn().mockReturnValue({
+    returning,
+  });
+
+  const set = vi.fn().mockReturnValue({
+    where,
+  });
+
+  const update = vi.fn().mockReturnValue({
+    set,
+  });
+
+  return {
+    update,
+    set,
+    where,
+    returning,
   };
 }
 
@@ -45,34 +94,58 @@ describe('PlatformStateService', () => {
   it('creates an uninitialized state when none exists', async () => {
     const selectMock = createSelectMock([]);
 
-    const returning = vi.fn().mockResolvedValue([
+    const insertMock = createInsertMock([
       {
         key: 'instance',
         initializationState: 'uninitialized',
       },
     ]);
 
-    const values = vi.fn().mockReturnValue({
-      returning,
-    });
-
-    const insert = vi.fn().mockReturnValue({
-      values,
-    });
-
     const databaseService = {
       db: {
         select: selectMock.select,
-        insert,
+        insert: insertMock.insert,
       },
     };
 
     const service = new PlatformStateService(databaseService as never);
 
     await expect(service.getState()).resolves.toBe('uninitialized');
+
+    expect(insertMock.onConflictDoNothing).toHaveBeenCalledTimes(1);
   });
 
-  it('reports setup as allowed for uninitialized state', async () => {
+  it('loads the concurrently created state when initialization insert loses the race', async () => {
+    const firstSelect = createSelectMock([]);
+    const secondSelect = createSelectMock([
+      {
+        key: 'instance',
+        initializationState: 'uninitialized',
+      },
+    ]);
+
+    const select = vi
+      .fn()
+      .mockImplementationOnce(firstSelect.select)
+      .mockImplementationOnce(secondSelect.select);
+
+    const insertMock = createInsertMock([]);
+
+    const databaseService = {
+      db: {
+        select,
+        insert: insertMock.insert,
+      },
+    };
+
+    const service = new PlatformStateService(databaseService as never);
+
+    await expect(service.getState()).resolves.toBe('uninitialized');
+
+    expect(select).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports setup as allowed only for uninitialized state', async () => {
     const selectMock = createSelectMock([
       {
         key: 'instance',
@@ -89,6 +162,25 @@ describe('PlatformStateService', () => {
     const service = new PlatformStateService(databaseService as never);
 
     await expect(service.isSetupAllowed()).resolves.toBe(true);
+  });
+
+  it('reports setup as unavailable for initializing state', async () => {
+    const selectMock = createSelectMock([
+      {
+        key: 'instance',
+        initializationState: 'initializing',
+      },
+    ]);
+
+    const databaseService = {
+      db: {
+        select: selectMock.select,
+      },
+    };
+
+    const service = new PlatformStateService(databaseService as never);
+
+    await expect(service.isSetupAllowed()).resolves.toBe(false);
   });
 
   it('reports setup as unavailable for ready state', async () => {
@@ -108,6 +200,59 @@ describe('PlatformStateService', () => {
     const service = new PlatformStateService(databaseService as never);
 
     await expect(service.isSetupAllowed()).resolves.toBe(false);
+  });
+
+  it('atomically claims setup from uninitialized state', async () => {
+    const selectMock = createSelectMock([
+      {
+        key: 'instance',
+        initializationState: 'uninitialized',
+      },
+    ]);
+
+    const updateMock = createUpdateMock([
+      {
+        key: 'instance',
+      },
+    ]);
+
+    const databaseService = {
+      db: {
+        select: selectMock.select,
+        update: updateMock.update,
+      },
+    };
+
+    const service = new PlatformStateService(databaseService as never);
+
+    await expect(service.claimSetup()).resolves.toBe(true);
+
+    expect(updateMock.update).toHaveBeenCalledTimes(1);
+    expect(updateMock.set).toHaveBeenCalledTimes(1);
+    expect(updateMock.where).toHaveBeenCalledTimes(1);
+    expect(updateMock.returning).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails to claim setup when another request already claimed it', async () => {
+    const selectMock = createSelectMock([
+      {
+        key: 'instance',
+        initializationState: 'initializing',
+      },
+    ]);
+
+    const updateMock = createUpdateMock([]);
+
+    const databaseService = {
+      db: {
+        select: selectMock.select,
+        update: updateMock.update,
+      },
+    };
+
+    const service = new PlatformStateService(databaseService as never);
+
+    await expect(service.claimSetup()).resolves.toBe(false);
   });
 
   it('reports ready state as initialized', async () => {
