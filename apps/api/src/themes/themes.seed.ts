@@ -1,7 +1,7 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 
-import type { ThemeTokens } from '../database/schema/index.js';
-import { ThemesService } from './themes.service.js';
+import { DatabaseService } from '../database/database.service.js';
+import { themes, type ThemeTokens } from '../database/schema/index.js';
 
 export const DEFAULT_SYSTEM_THEME_SLUG = 'familietools-light';
 
@@ -43,29 +43,26 @@ const defaultThemeTokens: ThemeTokens = {
 
 @Injectable()
 export class ThemesSeed implements OnApplicationBootstrap {
-  constructor(private readonly themesService: ThemesService) {}
+  constructor(private readonly databaseService: DatabaseService) {}
 
   async onApplicationBootstrap(): Promise<void> {
     await this.seed();
   }
 
   async seed(): Promise<void> {
-    try {
-      await this.themesService.getThemeBySlug(DEFAULT_SYSTEM_THEME_SLUG);
-
-      return;
-    } catch {
-      // Theme does not exist yet.
-    }
-
-    await this.themesService.createTheme({
-      name: 'FamilieTools Light',
-      slug: DEFAULT_SYSTEM_THEME_SLUG,
-      description: 'Built-in default theme for FamilieTools.',
-      tokens: defaultThemeTokens,
-      isEnabled: true,
-      isDefault: true,
-      isSystem: true,
-    });
+    await this.databaseService.db
+      .insert(themes)
+      .values({
+        name: 'FamilieTools Light',
+        slug: DEFAULT_SYSTEM_THEME_SLUG,
+        description: 'Built-in default theme for FamilieTools.',
+        tokens: defaultThemeTokens,
+        isEnabled: true,
+        isDefault: true,
+        isSystem: true,
+      })
+      .onConflictDoNothing({
+        target: themes.slug,
+      });
   }
 }
