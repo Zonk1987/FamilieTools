@@ -83,7 +83,71 @@ describe('computeNextRunAt', () => {
     ).toThrow('Interval schedule requires a positive intervalSeconds value');
   });
 
-  it('rejects cron calculation until cron support is implemented', () => {
+  it('calculates the next cron occurrence in UTC', () => {
+    const nextRunAt = computeNextRunAt(
+      {
+        ...baseSchedule,
+        scheduleType: 'cron',
+        runAt: null,
+        intervalSeconds: null,
+        cronExpression: '*/5 * * * *',
+        timezone: 'UTC',
+      },
+      new Date('2026-09-24T18:00:00.000Z'),
+    );
+
+    expect(nextRunAt?.toISOString()).toBe('2026-09-24T18:05:00.000Z');
+  });
+
+  it('respects the configured IANA timezone', () => {
+    const nextRunAt = computeNextRunAt(
+      {
+        ...baseSchedule,
+        scheduleType: 'cron',
+        runAt: null,
+        intervalSeconds: null,
+        cronExpression: '0 4 * * *',
+        timezone: 'Europe/Berlin',
+      },
+      new Date('2026-09-24T01:59:00.000Z'),
+    );
+
+    expect(nextRunAt?.toISOString()).toBe('2026-09-24T02:00:00.000Z');
+  });
+
+  it('handles daylight-saving transitions without inventing nonexistent local times', () => {
+    const nextRunAt = computeNextRunAt(
+      {
+        ...baseSchedule,
+        scheduleType: 'cron',
+        runAt: null,
+        intervalSeconds: null,
+        cronExpression: '30 2 * * *',
+        timezone: 'Europe/Berlin',
+      },
+      new Date('2026-03-28T01:30:00.000Z'),
+    );
+
+    expect(nextRunAt?.toISOString()).toBe('2026-03-30T00:30:00.000Z');
+  });
+
+  it('uses cron day-of-month OR day-of-week semantics when both are restricted', () => {
+    const nextRunAt = computeNextRunAt(
+      {
+        ...baseSchedule,
+        scheduleType: 'cron',
+        runAt: null,
+        intervalSeconds: null,
+        cronExpression: '0 9 1 * 1',
+        timezone: 'UTC',
+      },
+      new Date('2026-09-27T09:00:00.000Z'),
+    );
+
+    expect(nextRunAt?.toISOString()).toBe('2026-09-28T09:00:00.000Z');
+  });
+
+  it('rejects a cron schedule without an expression', () => {
     expect(() =>
       computeNextRunAt(
         {
@@ -91,10 +155,10 @@ describe('computeNextRunAt', () => {
           scheduleType: 'cron',
           runAt: null,
           intervalSeconds: null,
-          cronExpression: '*/5 * * * *',
+          cronExpression: null,
         },
         new Date('2026-09-24T18:00:00.000Z'),
       ),
-    ).toThrow('Cron schedule calculation is not implemented yet');
+    ).toThrow('Cron schedule requires a cronExpression');
   });
 });

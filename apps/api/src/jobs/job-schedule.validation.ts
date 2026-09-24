@@ -1,3 +1,5 @@
+import { parseCronExpression } from './cron-expression.js';
+
 export type JobScheduleType = 'once' | 'interval' | 'cron';
 
 export type JobScheduleValidationInput = {
@@ -79,6 +81,8 @@ export function validateJobSchedule(input: JobScheduleValidationInput): void {
     if (!hasValue(input.cronExpression)) {
       throw new Error('cronExpression is required for cron schedules');
     }
+
+    parseCronExpression(input.cronExpression!);
 
     if (input.runAt) {
       throw new Error('runAt is not allowed for cron schedules');

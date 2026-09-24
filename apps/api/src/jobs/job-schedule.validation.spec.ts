@@ -103,6 +103,36 @@ describe('validateJobSchedule', () => {
     },
   );
 
+  it.each([
+    '0 0 * *',
+    '0 0 * * * *',
+    '60 * * * *',
+    '* 24 * * *',
+    '* * 0 * *',
+    '* * * 13 *',
+    '* * * * 8',
+    '*/0 * * * *',
+    '10-5 * * * *',
+  ])('rejects invalid cron expression %s', (cronExpression) => {
+    expect(() =>
+      validateJobSchedule({
+        scheduleType: 'cron',
+        cronExpression,
+        timezone: 'UTC',
+      }),
+    ).toThrow();
+  });
+
+  it('accepts cron lists, ranges and steps', () => {
+    expect(() =>
+      validateJobSchedule({
+        scheduleType: 'cron',
+        cronExpression: '0,15,30,45 8-18/2 * * 1-5',
+        timezone: 'Europe/Berlin',
+      }),
+    ).not.toThrow();
+  });
+
   it('rejects runAt for cron schedules', () => {
     expect(() =>
       validateJobSchedule({

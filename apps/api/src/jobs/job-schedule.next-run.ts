@@ -1,4 +1,5 @@
 import type { JobSchedule } from '../database/schema/index.js';
+import { findNextCronRun } from './cron-expression.js';
 
 export function computeNextRunAt(schedule: JobSchedule, scheduledFor: Date): Date | null {
   if (schedule.scheduleType === 'once') {
@@ -14,7 +15,15 @@ export function computeNextRunAt(schedule: JobSchedule, scheduledFor: Date): Dat
   }
 
   if (schedule.scheduleType === 'cron') {
-    throw new Error('Cron schedule calculation is not implemented yet');
+    if (!schedule.cronExpression) {
+      throw new Error('Cron schedule requires a cronExpression');
+    }
+
+    if (!schedule.timezone.trim()) {
+      throw new Error('Cron schedule requires a timezone');
+    }
+
+    return findNextCronRun(schedule.cronExpression, schedule.timezone, scheduledFor);
   }
 
   const exhaustiveCheck: never = schedule.scheduleType;
