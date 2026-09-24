@@ -1,0 +1,71 @@
+name: Create PR After CI
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pull-request:
+    name: Create Pull Request
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch != 'main' &&
+      !startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check for existing pull request
+        id: existing-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          existing_pr="$(
+            gh pr list \
+              --repo "$REPOSITORY" \
+              --head "$HEAD_BRANCH" \
+              --base main \
+              --state open \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+
+          echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        if: steps.existing-pr.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh pr create \
+            --repo "$REPOSITORY" \
+            --head "$HEAD_BRANCH" \
+            --base main \
+            --title "Merge $HEAD_BRANCH into main" \
+            --body "$(cat <<'EOF'
+          ## Automated Pull Request
+
+          This pull request was created automatically after all CI checks for the branch completed successfully.
+
+          ### Merge policy
+
+          - CI must remain green.
+          - The branch must satisfy the repository ruleset.
+          - This pull request is **not merged automatically**.
+          - Final review and merge must be performed manually.
+
+          ---
+          Created by the FamilieTools CI workflow.
+          EOF
+          )"
