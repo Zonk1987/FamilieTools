@@ -10,3 +10,4 @@ export * from './themes.js';
 export * from './user-preferences.js';
 export * from './modules.js';
 export * from './auth-sessions.js';
+export * from './audit-logs.js';

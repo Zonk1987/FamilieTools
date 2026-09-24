@@ -63,13 +63,14 @@ export class AuthController {
     description: 'Invalid login credentials.',
   })
   async login(
+    @Req() request: CookieRequest,
     @Body() dto: LoginDto,
     @Res({
       passthrough: true,
     })
     reply: CookieReply,
   ) {
-    const result = await this.authService.login(dto.loginName, dto.password);
+    const result = await this.authService.login(dto.loginName, dto.password, request.id);
 
     reply.setCookie(SESSION_COOKIE_NAME, result.token, getSessionCookieOptions(result.expiresAt));
 
@@ -86,7 +87,7 @@ export class AuthController {
     type: LogoutResponseDto,
   })
   async logout(
-    @Req() request: CookieRequest,
+    @Req() request: RequestWithUser,
     @Res({
       passthrough: true,
     })
@@ -95,7 +96,7 @@ export class AuthController {
     const token = request.cookies?.[SESSION_COOKIE_NAME];
 
     if (token) {
-      await this.authService.logout(token);
+      await this.authService.logout(token, request.user?.id, request.id);
     }
 
     reply.clearCookie(SESSION_COOKIE_NAME, getClearSessionCookieOptions());
