@@ -44,12 +44,12 @@ export function validateJobRun(input: JobRunValidationInput): void {
   validateDate(input.timeoutAt, 'timeoutAt');
 
   if (input.triggerType === 'schedule') {
-    if (!input.scheduledFor) {
-      throw new Error('scheduledFor is required for schedule-triggered runs');
-    }
-
     if (!hasValue(input.scheduleId)) {
       throw new Error('scheduleId is required for schedule-triggered runs');
+    }
+
+    if (!input.scheduledFor) {
+      throw new Error('scheduledFor is required for schedule-triggered runs');
     }
   } else if (hasValue(input.scheduleId)) {
     if (input.scheduledFor) {
