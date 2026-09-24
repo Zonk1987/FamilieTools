@@ -39,7 +39,7 @@ describe('JobSchedulerRunner', () => {
 
     runner.onApplicationBootstrap();
 
-    await vi.runAllTicks();
+    vi.runAllTicks();
 
     expect(scheduler.tick).toHaveBeenCalledTimes(1);
     expect(scheduler.tick).toHaveBeenCalledWith('test-worker');
@@ -66,7 +66,7 @@ describe('JobSchedulerRunner', () => {
 
     runner.onApplicationBootstrap();
 
-    await vi.runAllTicks();
+    vi.runAllTicks();
 
     expect(scheduler.tick).toHaveBeenCalledTimes(1);
 
@@ -77,7 +77,7 @@ describe('JobSchedulerRunner', () => {
     resolveFirst();
 
     await firstTick;
-    await vi.runAllTicks();
+    vi.runAllTicks();
 
     await vi.advanceTimersByTimeAsync(1000);
 
@@ -103,7 +103,7 @@ describe('JobSchedulerRunner', () => {
 
     runner.onApplicationBootstrap();
 
-    await vi.runAllTicks();
+    vi.runAllTicks();
 
     let shutdownFinished = false;
 
