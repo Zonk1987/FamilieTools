@@ -18,6 +18,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PlatformThrottlerGuard } from './security/platform-throttler.guard.js';
 import { CsrfOriginGuard } from './security/csrf-origin.guard.js';
+import { AuditModule } from './audit/audit.module.js';
 
 import { APP_GUARD } from '@nestjs/core';
 
@@ -66,6 +67,7 @@ import { PlatformCapabilityGuard } from './platform-auth/platform-capability.gua
     }),
     PlatformStateModule,
     ThemesModule,
+    AuditModule,
     HealthModule,
     UserPreferencesModule,
     AuthModule,

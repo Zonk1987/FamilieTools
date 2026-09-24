@@ -6,9 +6,10 @@ import { AuthController } from './auth.controller.js';
 import { AuthSessionsRepository } from './auth-sessions.repository.js';
 import { AuthService } from './auth.service.js';
 import { SessionAuthGuard } from './session-auth.guard.js';
+import { AuditModule } from '../audit/audit.module.js';
 
 @Module({
-  imports: [DatabaseModule, UsersModule],
+  imports: [DatabaseModule, UsersModule, AuditModule],
   controllers: [AuthController],
   providers: [AuthSessionsRepository, SessionAuthGuard, AuthService],
   exports: [AuthSessionsRepository, SessionAuthGuard, AuthService],

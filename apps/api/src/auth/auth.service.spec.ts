@@ -20,10 +20,24 @@ function createDependencies() {
     deleteExpired: vi.fn(),
   };
 
+  const transaction = vi.fn(async (callback: (transaction: unknown) => Promise<unknown>) =>
+    callback({}),
+  );
+
+  const databaseService = {
+    transaction,
+  };
+
+  const auditService = {
+    append: vi.fn(),
+  };
+
   const service = new AuthService(
     usersRepository as never,
     passwordService as never,
     authSessionsRepository as never,
+    databaseService as never,
+    auditService as never,
   );
 
   return {
@@ -31,6 +45,8 @@ function createDependencies() {
     usersRepository,
     passwordService,
     authSessionsRepository,
+    databaseService,
+    auditService,
   };
 }
 
@@ -98,7 +114,11 @@ describe('AuthService', () => {
       id: 'session-1',
     });
 
-    const result = await dependencies.service.login(' Sebastian ', 'very-secure-password');
+    const result = await dependencies.service.login(
+      ' Sebastian ',
+      'very-secure-password',
+      'request-123',
+    );
 
     expect(dependencies.usersRepository.findByLoginName).toHaveBeenCalledWith('sebastian');
 
@@ -113,6 +133,27 @@ describe('AuthService', () => {
         tokenHash: expect.any(String),
         expiresAt: expect.any(Date),
       }),
+      expect.anything(),
+    );
+
+    expect(dependencies.auditService.append).toHaveBeenCalledWith(
+      {
+        actor: {
+          type: 'user',
+          id: 'user-1',
+        },
+        scope: {
+          type: 'platform',
+        },
+        action: 'auth.login.succeeded',
+        result: 'success',
+        requestId: 'request-123',
+        target: {
+          type: 'auth-session',
+          id: 'session-1',
+        },
+      },
+      expect.anything(),
     );
 
     expect(result.token).toEqual(expect.any(String));
@@ -132,7 +173,7 @@ describe('AuthService', () => {
     dependencies.usersRepository.findByLoginName.mockResolvedValue(null);
 
     await expect(
-      dependencies.service.login('unknown', 'very-secure-password'),
+      dependencies.service.login('unknown', 'very-secure-password', 'request-456'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(dependencies.passwordService.verify).toHaveBeenCalledWith(
@@ -141,6 +182,21 @@ describe('AuthService', () => {
     );
 
     expect(dependencies.authSessionsRepository.create).not.toHaveBeenCalled();
+
+    expect(dependencies.auditService.append).toHaveBeenCalledWith({
+      actor: {
+        type: 'anonymous',
+      },
+      scope: {
+        type: 'platform',
+      },
+      action: 'auth.login.failed',
+      result: 'failure',
+      requestId: 'request-456',
+      metadata: {
+        reason: 'invalid_credentials',
+      },
+    });
   });
 
   it('rejects an invalid password', async () => {
@@ -157,11 +213,26 @@ describe('AuthService', () => {
 
     dependencies.passwordService.verify.mockResolvedValue(false);
 
-    await expect(dependencies.service.login('sebastian', 'wrong-password')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      dependencies.service.login('sebastian', 'wrong-password', 'request-789'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(dependencies.authSessionsRepository.create).not.toHaveBeenCalled();
+
+    expect(dependencies.auditService.append).toHaveBeenCalledWith({
+      actor: {
+        type: 'anonymous',
+      },
+      scope: {
+        type: 'platform',
+      },
+      action: 'auth.login.failed',
+      result: 'failure',
+      requestId: 'request-789',
+      metadata: {
+        reason: 'invalid_credentials',
+      },
+    });
   });
 
   it('returns a user without touching a recently seen session', async () => {
@@ -249,6 +320,48 @@ describe('AuthService', () => {
 
     expect(dependencies.authSessionsRepository.deleteByTokenHash).toHaveBeenCalledWith(
       expect.any(String),
+      expect.anything(),
+    );
+
+    expect(dependencies.auditService.append).toHaveBeenCalledWith(
+      {
+        actor: {
+          type: 'anonymous',
+        },
+        scope: {
+          type: 'platform',
+        },
+        action: 'auth.logout',
+        result: 'success',
+      },
+      expect.anything(),
+    );
+  });
+
+  it('audits logout with the authenticated user as actor', async () => {
+    const dependencies = createDependencies();
+
+    await dependencies.service.logout('session-token', 'user-1', 'request-logout-1');
+
+    expect(dependencies.authSessionsRepository.deleteByTokenHash).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.anything(),
+    );
+
+    expect(dependencies.auditService.append).toHaveBeenCalledWith(
+      {
+        actor: {
+          type: 'user',
+          id: 'user-1',
+        },
+        scope: {
+          type: 'platform',
+        },
+        action: 'auth.logout',
+        result: 'success',
+        requestId: 'request-logout-1',
+      },
+      expect.anything(),
     );
   });
 

@@ -1,5 +1,6 @@
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
+import { ValidationPipe } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 export async function configureApp(app: NestFastifyApplication): Promise<void> {
@@ -18,6 +19,20 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
       policy: 'no-referrer',
     },
   });
+
+  fastify.addHook('onRequest', (request, reply, done) => {
+    reply.header('X-Request-ID', request.id);
+
+    done();
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   app.setGlobalPrefix('api');
 }

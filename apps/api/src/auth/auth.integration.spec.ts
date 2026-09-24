@@ -6,7 +6,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../app.module.js';
 import { DatabaseService } from '../database/database.service.js';
-import { authSessions, platformRoles, platformUserRoles, users } from '../database/schema/index.js';
+import {
+  auditLogs,
+  authSessions,
+  platformRoles,
+  platformUserRoles,
+  users,
+} from '../database/schema/index.js';
 import { PasswordService } from '../users/password.service.js';
 import { PLATFORM_OWNER_ROLE_KEY } from '../platform-auth/platform-capabilities.js';
 import { eq } from 'drizzle-orm';
@@ -101,6 +107,10 @@ describe('Authentication integration', () => {
 
       await database.db.delete(authSessions).where(eq(authSessions.userId, normalUserId));
 
+      await database.db.delete(auditLogs).where(eq(auditLogs.actorId, ownerUserId));
+
+      await database.db.delete(auditLogs).where(eq(auditLogs.actorId, normalUserId));
+
       await database.db.delete(users).where(eq(users.id, ownerUserId));
 
       await database.db.delete(users).where(eq(users.id, normalUserId));
@@ -166,5 +176,150 @@ describe('Authentication integration', () => {
     await agent.post('/api/auth/logout').set('Origin', 'http://localhost:5173').expect(200);
 
     await agent.get('/api/auth/me').expect(401);
+  });
+
+  it('correlates a successful login audit event with the HTTP request ID', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({
+        loginName: ownerLoginName,
+        password: ownerPassword,
+      })
+      .expect(200);
+
+    const requestId = response.headers['x-request-id'];
+
+    expect(requestId).toEqual(expect.any(String));
+
+    const entries = await database.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.requestId, requestId));
+
+    expect(entries).toHaveLength(1);
+
+    expect(entries[0]).toMatchObject({
+      actorType: 'user',
+      actorId: ownerUserId,
+      scopeType: 'platform',
+      action: 'auth.login.succeeded',
+      result: 'success',
+      targetType: 'auth-session',
+      requestId,
+    });
+  });
+
+  it('writes a generic audit event for a failed login', async () => {
+    await database.db.delete(auditLogs).where(eq(auditLogs.action, 'auth.login.failed'));
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({
+        loginName: 'does-not-exist',
+        password: 'wrong-password',
+      })
+      .expect(401);
+
+    const entries = await database.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.action, 'auth.login.failed'));
+
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorType: 'anonymous',
+          actorId: null,
+          scopeType: 'platform',
+          action: 'auth.login.failed',
+          result: 'failure',
+          metadata: {
+            reason: 'invalid_credentials',
+          },
+        }),
+      ]),
+    );
+  });
+
+  it('correlates a failed login audit event with the HTTP request ID without storing credentials', async () => {
+    const attemptedLoginName = 'sensitive-login-name';
+
+    const attemptedPassword = 'super-secret-password';
+
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({
+        loginName: attemptedLoginName,
+        password: attemptedPassword,
+      })
+      .expect(401);
+
+    const requestId = response.headers['x-request-id'];
+
+    expect(requestId).toEqual(expect.any(String));
+
+    const entries = await database.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.requestId, requestId));
+
+    expect(entries).toHaveLength(1);
+
+    const entry = entries[0];
+
+    expect(entry).toMatchObject({
+      actorType: 'anonymous',
+      actorId: null,
+      scopeType: 'platform',
+      action: 'auth.login.failed',
+      result: 'failure',
+      requestId,
+      metadata: {
+        reason: 'invalid_credentials',
+      },
+    });
+
+    const serializedEntry = JSON.stringify(entry);
+
+    expect(serializedEntry).not.toContain(attemptedLoginName);
+
+    expect(serializedEntry).not.toContain(attemptedPassword);
+  });
+
+  it('correlates a logout audit event with the HTTP request ID', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
+      .post('/api/auth/login')
+      .send({
+        loginName: ownerLoginName,
+        password: ownerPassword,
+      })
+      .expect(200);
+
+    const response = await agent
+      .post('/api/auth/logout')
+      .set('Origin', 'http://localhost:5173')
+      .expect(200);
+
+    const requestId = response.headers['x-request-id'];
+
+    expect(requestId).toEqual(expect.any(String));
+
+    const entries = await database.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.requestId, requestId));
+
+    expect(entries).toHaveLength(1);
+
+    expect(entries[0]).toMatchObject({
+      actorType: 'user',
+      actorId: ownerUserId,
+      scopeType: 'platform',
+      action: 'auth.logout',
+      result: 'success',
+      requestId,
+    });
   });
 });

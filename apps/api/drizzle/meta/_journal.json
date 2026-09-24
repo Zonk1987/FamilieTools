@@ -57,6 +57,13 @@
       "when": 1790055142607,
       "tag": "0007_skinny_queen_noir",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790232132716,
+      "tag": "0008_curly_timeslip",
+      "breakpoints": true
     }
   ]
 }
