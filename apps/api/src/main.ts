@@ -20,6 +20,8 @@ async function bootstrap() {
 
   await configureApp(app);
 
+  app.enableShutdownHooks();
+
   app.enableCors({
     origin: getAllowedWebOrigins(),
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],

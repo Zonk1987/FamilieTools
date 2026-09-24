@@ -11,3 +11,6 @@ export * from './user-preferences.js';
 export * from './modules.js';
 export * from './auth-sessions.js';
 export * from './audit-logs.js';
+export * from './job-definitions.js';
+export * from './job-runs.js';
+export * from './job-schedules.js';

@@ -14,7 +14,9 @@
     "test": "pnpm --filter ./packages/module-schema test && pnpm --filter ./packages/module-package test && pnpm --filter ./apps/api test && pnpm --filter ./apps/web test",
     "check": "pnpm format:check && pnpm --filter ./packages/module-package check && pnpm --filter ./packages/module-package check:test && pnpm -r --filter ./apps/web --filter ./apps/api --if-present run check",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "lint": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run lint",
+    "typecheck": "pnpm -r --filter ./apps/web --filter ./apps/api --if-present run typecheck"
   },
   "devDependencies": {
     "prettier": "^3.9.8"
