@@ -11,5 +11,7 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.integration.spec.ts'],
+
+    fileParallelism: false,
   },
 });
