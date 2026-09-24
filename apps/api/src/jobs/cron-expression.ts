@@ -55,9 +55,7 @@ function addRange(
   options: CronFieldOptions,
 ): void {
   if (start < options.min || start > options.max || end < options.min || end > options.max) {
-    throw new Error(
-      `${options.name} values must be between ${options.min} and ${options.max}`,
-    );
+    throw new Error(`${options.name} values must be between ${options.min} and ${options.max}`);
   }
 
   if (start > end) {
@@ -85,7 +83,8 @@ function parseCronField(source: string, options: CronFieldOptions): CronField {
     }
 
     const base = slashParts[0] ?? '';
-    const step = slashParts[1] === undefined ? 1 : parsePositiveInteger(slashParts[1], options.name);
+    const step =
+      slashParts[1] === undefined ? 1 : parsePositiveInteger(slashParts[1], options.name);
 
     if (step <= 0) {
       throw new Error(`${options.name} step must be greater than 0`);
@@ -250,11 +249,7 @@ function matchesCron(parsed: ParsedCronExpression, date: Date, timezone: string)
   return true;
 }
 
-export function findNextCronRun(
-  expression: string,
-  timezone: string,
-  after: Date,
-): Date {
+export function findNextCronRun(expression: string, timezone: string, after: Date): Date {
   const parsed = parseCronExpression(expression);
 
   // Start at the next whole minute. Cron v1 intentionally uses standard

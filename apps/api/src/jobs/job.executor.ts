@@ -106,18 +106,34 @@ export class JobExecutor {
 
       return this.repository.markRunSucceeded(claimedRun.id, new Date(), output);
     } catch (error) {
+      const finishedAt = new Date();
+
+      const retryAt = new Date(finishedAt.getTime() + definition.retryDelaySeconds * 1000);
+
       if (error instanceof JobTimeoutError) {
-        return this.repository.markRunTimedOut(claimedRun.id, new Date(), timeoutAt);
+        const result = await this.repository.markRunTimedOutAndQueueRetry(
+          claimedRun,
+          finishedAt,
+          timeoutAt,
+          retryAt,
+          definition.maxRetries,
+        );
+
+        return result.completedRun;
       }
 
       const normalized = this.normalizeError(error);
 
-      return this.repository.markRunFailed(
-        claimedRun.id,
-        new Date(),
+      const result = await this.repository.markRunFailedAndQueueRetry(
+        claimedRun,
+        finishedAt,
         normalized.code,
         normalized.message,
+        retryAt,
+        definition.maxRetries,
       );
+
+      return result.completedRun;
     } finally {
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);

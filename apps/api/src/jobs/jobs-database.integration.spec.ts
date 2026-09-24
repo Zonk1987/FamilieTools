@@ -349,6 +349,11 @@ describe('Jobs database constraints', () => {
         scheduledFor: new Date('2026-10-01T12:00:00.000Z'),
 
         triggerType: 'schedule',
+
+        status: 'succeeded',
+
+        startedAt: new Date('2026-10-01T12:00:00.000Z'),
+        finishedAt: new Date('2026-10-01T12:00:01.000Z'),
       })
       .returning({
         id: jobRuns.id,
@@ -716,12 +721,15 @@ describe('Jobs database constraints', () => {
       throw new Error('Failed to create job definition');
     }
 
+    const claimedAt = new Date('2026-09-24T16:00:00.000Z');
+
     const [run] = await database.db
       .insert(jobRuns)
       .values({
         jobDefinitionId: job.id,
         triggerType: 'manual',
         status: 'queued',
+        availableAt: claimedAt,
       })
       .returning({
         id: jobRuns.id,
@@ -730,8 +738,6 @@ describe('Jobs database constraints', () => {
     if (!run) {
       throw new Error('Failed to create job run');
     }
-
-    const claimedAt = new Date('2026-09-24T16:00:00.000Z');
 
     const timeoutAt = new Date('2026-09-24T16:05:00.000Z');
 
@@ -1194,4 +1200,301 @@ describe('Jobs database constraints', () => {
     expect(matchingRuns).toHaveLength(0);
   });
 
+  it('returns only queued runs whose availableAt is due', async () => {
+    const [job] = await database.db
+      .insert(jobDefinitions)
+      .values({
+        key: 'run.ready-queue',
+        ownerType: 'platform',
+        ownerId: null,
+        name: 'Ready Queue',
+        handler: 'run.ready-queue',
+      })
+      .returning({
+        id: jobDefinitions.id,
+      });
+
+    if (!job) {
+      throw new Error('Failed to create job definition');
+    }
+
+    const now = new Date('2026-10-04T12:00:00.000Z');
+
+    const [readyRun, futureRun] = await database.db
+      .insert(jobRuns)
+      .values([
+        {
+          jobDefinitionId: job.id,
+          triggerType: 'manual',
+          status: 'queued',
+          availableAt: now,
+        },
+        {
+          jobDefinitionId: job.id,
+          triggerType: 'manual',
+          status: 'queued',
+          availableAt: new Date('2026-10-04T12:05:00.000Z'),
+        },
+      ])
+      .returning();
+
+    if (!readyRun || !futureRun) {
+      throw new Error('Failed to create ready queue test runs');
+    }
+
+    const ready = await repository.listReadyRuns(now);
+
+    expect(ready.some((run) => run.id === readyRun.id)).toBe(true);
+
+    expect(ready.some((run) => run.id === futureRun.id)).toBe(false);
+  });
+
+  it('atomically marks a failed attempt and creates a retry attempt', async () => {
+    const [job] = await database.db
+      .insert(jobDefinitions)
+      .values({
+        key: 'run.retry-chain',
+        ownerType: 'platform',
+        ownerId: null,
+        name: 'Retry Chain',
+        handler: 'run.retry-chain',
+        maxRetries: 2,
+        retryDelaySeconds: 30,
+      })
+      .returning({
+        id: jobDefinitions.id,
+      });
+
+    if (!job) {
+      throw new Error('Failed to create job definition');
+    }
+
+    const scheduledFor = new Date('2026-10-05T12:00:00.000Z');
+
+    const [schedule] = await database.db
+      .insert(jobSchedules)
+      .values({
+        jobDefinitionId: job.id,
+        scheduleType: 'once',
+        runAt: scheduledFor,
+      })
+      .returning({
+        id: jobSchedules.id,
+      });
+
+    if (!schedule) {
+      throw new Error('Failed to create schedule');
+    }
+
+    const [running] = await database.db
+      .insert(jobRuns)
+      .values({
+        jobDefinitionId: job.id,
+
+        scheduleId: schedule.id,
+        scheduledFor,
+
+        triggerType: 'schedule',
+
+        status: 'running',
+        attempt: 1,
+
+        availableAt: scheduledFor,
+
+        startedAt: scheduledFor,
+
+        timeoutAt: new Date('2026-10-05T12:05:00.000Z'),
+
+        claimedBy: 'worker-a',
+        claimedAt: scheduledFor,
+        leaseExpiresAt: new Date('2026-10-05T12:05:00.000Z'),
+      })
+      .returning();
+
+    if (!running) {
+      throw new Error('Failed to create running attempt');
+    }
+
+    const retryAt = new Date('2026-10-05T12:00:30.000Z');
+
+    const result = await repository.markRunFailedAndQueueRetry(
+      running,
+      new Date('2026-10-05T12:00:01.000Z'),
+      'TEST_FAILURE',
+      'Retry test failure',
+      retryAt,
+      2,
+    );
+
+    expect(result.completedRun).toEqual(
+      expect.objectContaining({
+        id: running.id,
+        status: 'failed',
+        attempt: 1,
+        errorCode: 'TEST_FAILURE',
+      }),
+    );
+
+    expect(result.retryRun).toEqual(
+      expect.objectContaining({
+        jobDefinitionId: job.id,
+
+        scheduleId: schedule.id,
+        scheduledFor,
+
+        status: 'queued',
+        triggerType: 'schedule',
+
+        attempt: 2,
+        availableAt: retryAt,
+      }),
+    );
+
+    const runs = await repository.listRunsForDefinition(job.id);
+
+    const attempts = runs
+      .filter(
+        (run) =>
+          run.scheduleId === schedule.id && run.scheduledFor?.getTime() === scheduledFor.getTime(),
+      )
+      .map((run) => run.attempt)
+      .sort((a, b) => a - b);
+
+    expect(attempts).toEqual([1, 2]);
+  });
+
+  it('does not create a retry after maxRetries is exhausted', async () => {
+    const [job] = await database.db
+      .insert(jobDefinitions)
+      .values({
+        key: 'run.retry-exhausted',
+        ownerType: 'platform',
+        ownerId: null,
+        name: 'Retry Exhausted',
+        handler: 'run.retry-exhausted',
+      })
+      .returning({
+        id: jobDefinitions.id,
+      });
+
+    if (!job) {
+      throw new Error('Failed to create job definition');
+    }
+
+    const startedAt = new Date('2026-10-06T12:00:00.000Z');
+
+    const [running] = await database.db
+      .insert(jobRuns)
+      .values({
+        jobDefinitionId: job.id,
+
+        triggerType: 'manual',
+
+        status: 'running',
+        attempt: 2,
+
+        availableAt: startedAt,
+
+        startedAt,
+
+        timeoutAt: new Date('2026-10-06T12:05:00.000Z'),
+
+        claimedBy: 'worker-a',
+        claimedAt: startedAt,
+        leaseExpiresAt: new Date('2026-10-06T12:05:00.000Z'),
+      })
+      .returning();
+
+    if (!running) {
+      throw new Error('Failed to create running attempt');
+    }
+
+    const result = await repository.markRunFailedAndQueueRetry(
+      running,
+      new Date('2026-10-06T12:00:01.000Z'),
+      null,
+      'Final failure',
+      new Date('2026-10-06T12:00:31.000Z'),
+      1,
+    );
+
+    expect(result.completedRun.status).toBe('failed');
+
+    expect(result.retryRun).toBeNull();
+
+    const runs = await repository.listRunsForDefinition(job.id);
+
+    expect(runs.filter((run) => run.jobDefinitionId === job.id)).toHaveLength(1);
+  });
+
+  it('does not claim a queued run before availableAt', async () => {
+    const [job] = await database.db
+      .insert(jobDefinitions)
+      .values({
+        key: 'run.future-claim',
+        ownerType: 'platform',
+        ownerId: null,
+        name: 'Future Claim',
+        handler: 'run.future-claim',
+      })
+      .returning({
+        id: jobDefinitions.id,
+      });
+
+    if (!job) {
+      throw new Error('Failed to create job definition');
+    }
+
+    const now = new Date('2026-10-07T12:00:00.000Z');
+
+    const availableAt = new Date('2026-10-07T12:05:00.000Z');
+
+    const [run] = await database.db
+      .insert(jobRuns)
+      .values({
+        jobDefinitionId: job.id,
+
+        triggerType: 'manual',
+
+        status: 'queued',
+
+        availableAt,
+      })
+      .returning({
+        id: jobRuns.id,
+      });
+
+    if (!run) {
+      throw new Error('Failed to create future job run');
+    }
+
+    const earlyClaim = await repository.claimRun(
+      run.id,
+      'worker-a',
+      now,
+      new Date('2026-10-07T12:10:00.000Z'),
+      new Date('2026-10-07T12:10:00.000Z'),
+    );
+
+    expect(earlyClaim).toBeNull();
+
+    const allowedClaimAt = availableAt;
+
+    const allowedClaim = await repository.claimRun(
+      run.id,
+      'worker-a',
+      allowedClaimAt,
+      new Date('2026-10-07T12:10:00.000Z'),
+      new Date('2026-10-07T12:10:00.000Z'),
+    );
+
+    expect(allowedClaim).toEqual(
+      expect.objectContaining({
+        id: run.id,
+        status: 'running',
+        claimedBy: 'worker-a',
+        claimedAt: allowedClaimAt,
+      }),
+    );
+  });
 });

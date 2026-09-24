@@ -130,8 +130,8 @@ describe('JobSchedulerRunner', () => {
       tick: vi.fn(),
     };
 
-    expect(
-      () => new JobSchedulerRunner(scheduler as unknown as JobSchedulerService),
-    ).toThrow('JOB_SCHEDULER_INTERVAL_MS must be an integer greater than or equal to 250');
+    expect(() => new JobSchedulerRunner(scheduler as unknown as JobSchedulerService)).toThrow(
+      'JOB_SCHEDULER_INTERVAL_MS must be an integer greater than or equal to 250',
+    );
   });
 });

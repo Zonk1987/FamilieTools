@@ -110,6 +110,15 @@ export class JobRepository {
       .limit(limit);
   }
 
+  async listReadyRuns(now: Date, limit = 100): Promise<JobRun[]> {
+    return this.database.db
+      .select()
+      .from(jobRuns)
+      .where(and(eq(jobRuns.status, 'queued'), lte(jobRuns.availableAt, now)))
+      .orderBy(asc(jobRuns.availableAt), asc(jobRuns.createdAt), asc(jobRuns.id))
+      .limit(limit);
+  }
+
   async createScheduledRunAndAdvance(
     schedule: JobSchedule,
     scheduledFor: Date,
@@ -147,10 +156,11 @@ export class JobRepository {
           status: 'queued',
           triggerType: 'schedule',
           attempt: 1,
+          availableAt: scheduledFor,
           input,
         })
         .onConflictDoNothing({
-          target: [jobRuns.scheduleId, jobRuns.scheduledFor],
+          target: [jobRuns.scheduleId, jobRuns.scheduledFor, jobRuns.attempt],
         })
         .returning();
 
@@ -161,12 +171,7 @@ export class JobRepository {
       const [existing] = await tx
         .select()
         .from(jobRuns)
-        .where(
-          and(
-            eq(jobRuns.scheduleId, schedule.id),
-            eq(jobRuns.scheduledFor, scheduledFor),
-          ),
-        )
+        .where(and(eq(jobRuns.scheduleId, schedule.id), eq(jobRuns.scheduledFor, scheduledFor)))
         .limit(1);
 
       if (!existing) {
@@ -249,48 +254,132 @@ export class JobRepository {
     return updated;
   }
 
-  async markRunFailed(
-    id: string,
+  async markRunFailedAndQueueRetry(
+    run: JobRun,
     finishedAt: Date,
     errorCode: string | null,
     errorMessage: string,
-  ): Promise<JobRun> {
-    const [updated] = await this.database.db
-      .update(jobRuns)
-      .set({
-        status: 'failed',
-        finishedAt,
-        errorCode,
-        errorMessage,
-      })
-      .where(eq(jobRuns.id, id))
-      .returning();
+    retryAt: Date,
+    maxRetries: number,
+  ): Promise<{ completedRun: JobRun; retryRun: JobRun | null }> {
+    return this.database.transaction(async (tx) => {
+      const [completedRun] = await tx
+        .update(jobRuns)
+        .set({
+          status: 'failed',
+          finishedAt,
+          errorCode,
+          errorMessage,
+        })
+        .where(eq(jobRuns.id, run.id))
+        .returning();
 
-    if (!updated) {
-      throw new Error(`Job run "${id}" was not found`);
-    }
+      if (!completedRun) {
+        throw new Error(`Job run "${run.id}" could not be marked as failed`);
+      }
 
-    return updated;
+      if (run.attempt > maxRetries) {
+        return {
+          completedRun,
+          retryRun: null,
+        };
+      }
+
+      const [retryRun] = await tx
+        .insert(jobRuns)
+        .values({
+          jobDefinitionId: run.jobDefinitionId,
+
+          scheduleId: run.scheduleId,
+          scheduledFor: run.scheduledFor,
+
+          status: 'queued',
+          triggerType: run.triggerType,
+
+          attempt: run.attempt + 1,
+          availableAt: retryAt,
+
+          requestedByType: run.requestedByType,
+          requestedById: run.requestedById,
+
+          input: run.input,
+          metadata: run.metadata,
+        })
+        .returning();
+
+      if (!retryRun) {
+        throw new Error(`Retry for job run "${run.id}" could not be created`);
+      }
+
+      return {
+        completedRun,
+        retryRun,
+      };
+    });
   }
 
-  async markRunTimedOut(id: string, finishedAt: Date, timeoutAt: Date): Promise<JobRun> {
-    const [updated] = await this.database.db
-      .update(jobRuns)
-      .set({
-        status: 'timed_out',
-        finishedAt,
-        timeoutAt,
-        errorCode: null,
-        errorMessage: null,
-      })
-      .where(eq(jobRuns.id, id))
-      .returning();
+  async markRunTimedOutAndQueueRetry(
+    run: JobRun,
+    finishedAt: Date,
+    timeoutAt: Date,
+    retryAt: Date,
+    maxRetries: number,
+  ): Promise<{ completedRun: JobRun; retryRun: JobRun | null }> {
+    return this.database.transaction(async (tx) => {
+      const [completedRun] = await tx
+        .update(jobRuns)
+        .set({
+          status: 'timed_out',
+          finishedAt,
+          timeoutAt,
+          errorCode: null,
+          errorMessage: null,
+        })
+        .where(eq(jobRuns.id, run.id))
+        .returning();
 
-    if (!updated) {
-      throw new Error(`Job run "${id}" was not found`);
-    }
+      if (!completedRun) {
+        throw new Error(`Job run "${run.id}" could not be marked as timed out`);
+      }
 
-    return updated;
+      if (run.attempt > maxRetries) {
+        return {
+          completedRun,
+          retryRun: null,
+        };
+      }
+
+      const [retryRun] = await tx
+        .insert(jobRuns)
+        .values({
+          jobDefinitionId: run.jobDefinitionId,
+
+          scheduleId: run.scheduleId,
+          scheduledFor: run.scheduledFor,
+
+          status: 'queued',
+          triggerType: run.triggerType,
+
+          attempt: run.attempt + 1,
+          availableAt: retryAt,
+
+          requestedByType: run.requestedByType,
+          requestedById: run.requestedById,
+
+          input: run.input,
+          metadata: run.metadata,
+        })
+        .returning();
+
+      if (!retryRun) {
+        throw new Error(`Retry for job run "${run.id}" could not be created`);
+      }
+
+      return {
+        completedRun,
+        retryRun,
+      };
+    });
   }
 
   async claimRun(
@@ -319,6 +408,7 @@ export class JobRepository {
         and(
           eq(jobRuns.id, id),
           eq(jobRuns.status, 'queued'),
+          lte(jobRuns.availableAt, claimedAt),
           or(isNull(jobRuns.leaseExpiresAt), lte(jobRuns.leaseExpiresAt, claimedAt)),
         ),
       )
@@ -359,7 +449,7 @@ export class JobRepository {
       .insert(jobRuns)
       .values(run)
       .onConflictDoNothing({
-        target: [jobRuns.scheduleId, jobRuns.scheduledFor],
+        target: [jobRuns.scheduleId, jobRuns.scheduledFor, jobRuns.attempt],
       })
       .returning();
 

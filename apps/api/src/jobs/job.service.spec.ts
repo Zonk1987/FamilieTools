@@ -68,6 +68,8 @@ const queuedRun: JobRun = {
 
   attempt: 1,
 
+  availableAt: new Date('2026-09-24T12:00:00.000Z'),
+
   requestedByType: null,
   requestedById: null,
 

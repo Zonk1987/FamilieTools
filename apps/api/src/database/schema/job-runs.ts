@@ -57,6 +57,13 @@ export const jobRuns = pgTable(
 
     attempt: integer('attempt').default(1).notNull(),
 
+    availableAt: timestamp('available_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .defaultNow()
+      .notNull(),
+
     requestedByType: text('requested_by_type'),
 
     requestedById: text('requested_by_id'),
@@ -106,18 +113,27 @@ export const jobRuns = pgTable(
       .notNull(),
   },
   (table) => [
-    index('job_runs_claimable_idx').on(table.status, table.leaseExpiresAt, table.createdAt),
+    index('job_runs_claimable_idx').on(
+      table.status,
+      table.availableAt,
+      table.leaseExpiresAt,
+      table.createdAt,
+    ),
 
-    uniqueIndex('job_runs_schedule_fire_unique').on(table.scheduleId, table.scheduledFor),
+    uniqueIndex('job_runs_schedule_fire_unique').on(
+      table.scheduleId,
+      table.scheduledFor,
+      table.attempt,
+    ),
 
     check('job_runs_attempt_positive', sql`${table.attempt} >= 1`),
 
     check(
       'job_runs_trigger_schedule_valid',
       sql`
-        ${table.triggerType} = 'schedule'
-        OR ${table.scheduleId} IS NULL
-      `,
+    ${table.triggerType} = 'schedule'
+    OR ${table.scheduleId} IS NULL
+  `,
     ),
 
     check(
