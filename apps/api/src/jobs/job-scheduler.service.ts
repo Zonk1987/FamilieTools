@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { JobExecutor } from './job.executor.js';
 import { JobRepository } from './job.repository.js';
-import { JobService } from './job.service.js';
 import { computeNextRunAt } from './job-schedule.next-run.js';
 
 @Injectable()
@@ -11,7 +10,6 @@ export class JobSchedulerService {
 
   constructor(
     private readonly repository: JobRepository,
-    private readonly jobService: JobService,
     private readonly executor: JobExecutor,
   ) {}
 
@@ -31,32 +29,19 @@ export class JobSchedulerService {
         }
 
         const scheduledFor = schedule.nextRunAt;
-
-        const run = await this.jobService.queueScheduledRun({
-          jobDefinitionId: schedule.jobDefinitionId,
-
-          scheduleId: schedule.id,
-
-          scheduledFor,
-        });
-
-        if (!run) {
-          continue;
-        }
-
         const nextRunAt = computeNextRunAt(schedule, scheduledFor);
 
-        const advancedSchedule = await this.repository.advanceSchedule(
-          schedule.id,
-          scheduledFor,
+        const run = await this.repository.createScheduledRunAndAdvance(
+          schedule,
           scheduledFor,
           nextRunAt,
         );
 
-        if (!advancedSchedule) {
-          this.logger.warn(
-            `Schedule "${schedule.id}" was already advanced by another scheduler instance`,
+        if (!run) {
+          this.logger.debug(
+            `Schedule "${schedule.id}" was already processed by another scheduler instance`,
           );
+          continue;
         }
 
         await this.executor.execute(run.id, workerId);

@@ -110,6 +110,75 @@ export class JobRepository {
       .limit(limit);
   }
 
+  async createScheduledRunAndAdvance(
+    schedule: JobSchedule,
+    scheduledFor: Date,
+    nextRunAt: Date | null,
+    input: Record<string, unknown> = {},
+  ): Promise<JobRun | null> {
+    return this.database.transaction(async (tx) => {
+      const [advancedSchedule] = await tx
+        .update(jobSchedules)
+        .set({
+          lastRunAt: scheduledFor,
+          nextRunAt,
+          isEnabled: nextRunAt !== null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(jobSchedules.id, schedule.id),
+            eq(jobSchedules.isEnabled, true),
+            eq(jobSchedules.nextRunAt, scheduledFor),
+          ),
+        )
+        .returning();
+
+      if (!advancedSchedule) {
+        return null;
+      }
+
+      const [created] = await tx
+        .insert(jobRuns)
+        .values({
+          jobDefinitionId: schedule.jobDefinitionId,
+          scheduleId: schedule.id,
+          scheduledFor,
+          status: 'queued',
+          triggerType: 'schedule',
+          attempt: 1,
+          input,
+        })
+        .onConflictDoNothing({
+          target: [jobRuns.scheduleId, jobRuns.scheduledFor],
+        })
+        .returning();
+
+      if (created) {
+        return created;
+      }
+
+      const [existing] = await tx
+        .select()
+        .from(jobRuns)
+        .where(
+          and(
+            eq(jobRuns.scheduleId, schedule.id),
+            eq(jobRuns.scheduledFor, scheduledFor),
+          ),
+        )
+        .limit(1);
+
+      if (!existing) {
+        throw new Error(
+          `Scheduled job run for schedule "${schedule.id}" at "${scheduledFor.toISOString()}" could not be created`,
+        );
+      }
+
+      return existing;
+    });
+  }
+
   async createRun(run: NewJobRun): Promise<JobRun> {
     const [created] = await this.database.db.insert(jobRuns).values(run).returning();
 

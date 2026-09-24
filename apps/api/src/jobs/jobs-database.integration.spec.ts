@@ -1067,4 +1067,131 @@ describe('Jobs database constraints', () => {
       }),
     );
   });
+
+  it('atomically creates one scheduled run and advances the schedule exactly once', async () => {
+    const [job] = await database.db
+      .insert(jobDefinitions)
+      .values({
+        key: 'schedule.atomic-fire',
+        ownerType: 'platform',
+        ownerId: null,
+        name: 'Atomic Scheduled Fire',
+        handler: 'schedule.atomic-fire',
+      })
+      .returning({ id: jobDefinitions.id });
+
+    if (!job) {
+      throw new Error('Failed to create job definition');
+    }
+
+    const scheduledFor = new Date('2026-10-02T12:00:00.000Z');
+    const nextRunAt = new Date('2026-10-02T12:05:00.000Z');
+
+    const [storedSchedule] = await database.db
+      .insert(jobSchedules)
+      .values({
+        jobDefinitionId: job.id,
+        scheduleType: 'interval',
+        intervalSeconds: 300,
+        nextRunAt: scheduledFor,
+      })
+      .returning();
+
+    if (!storedSchedule) {
+      throw new Error('Failed to create job schedule');
+    }
+
+    const [schedulerA, schedulerB] = await Promise.all([
+      repository.createScheduledRunAndAdvance(storedSchedule, scheduledFor, nextRunAt),
+      repository.createScheduledRunAndAdvance(storedSchedule, scheduledFor, nextRunAt),
+    ]);
+
+    const winners = [schedulerA, schedulerB].filter((result) => result !== null);
+
+    expect(winners).toHaveLength(1);
+
+    const storedRuns = await repository.listRunsForDefinition(job.id);
+    const matchingRuns = storedRuns.filter(
+      (run) =>
+        run.scheduleId === storedSchedule.id &&
+        run.scheduledFor?.getTime() === scheduledFor.getTime(),
+    );
+
+    expect(matchingRuns).toHaveLength(1);
+
+    const advanced = await repository.findScheduleById(storedSchedule.id);
+
+    expect(advanced).toEqual(
+      expect.objectContaining({
+        id: storedSchedule.id,
+        lastRunAt: scheduledFor,
+        nextRunAt,
+        isEnabled: true,
+      }),
+    );
+  });
+
+  it('rolls back the schedule advance when scheduled run creation fails', async () => {
+    const [job] = await database.db
+      .insert(jobDefinitions)
+      .values({
+        key: 'schedule.atomic-rollback',
+        ownerType: 'platform',
+        ownerId: null,
+        name: 'Atomic Scheduled Rollback',
+        handler: 'schedule.atomic-rollback',
+      })
+      .returning({ id: jobDefinitions.id });
+
+    if (!job) {
+      throw new Error('Failed to create job definition');
+    }
+
+    const scheduledFor = new Date('2026-10-03T12:00:00.000Z');
+    const nextRunAt = new Date('2026-10-03T12:05:00.000Z');
+
+    const [storedSchedule] = await database.db
+      .insert(jobSchedules)
+      .values({
+        jobDefinitionId: job.id,
+        scheduleType: 'interval',
+        intervalSeconds: 300,
+        nextRunAt: scheduledFor,
+      })
+      .returning();
+
+    if (!storedSchedule) {
+      throw new Error('Failed to create job schedule');
+    }
+
+    const invalidSchedule = {
+      ...storedSchedule,
+      jobDefinitionId: '99999999-9999-4999-8999-999999999999',
+    };
+
+    await expect(
+      repository.createScheduledRunAndAdvance(invalidSchedule, scheduledFor, nextRunAt),
+    ).rejects.toThrow();
+
+    const afterFailure = await repository.findScheduleById(storedSchedule.id);
+
+    expect(afterFailure).toEqual(
+      expect.objectContaining({
+        id: storedSchedule.id,
+        lastRunAt: null,
+        nextRunAt: scheduledFor,
+        isEnabled: true,
+      }),
+    );
+
+    const storedRuns = await repository.listRunsForDefinition(job.id);
+    const matchingRuns = storedRuns.filter(
+      (run) =>
+        run.scheduleId === storedSchedule.id &&
+        run.scheduledFor?.getTime() === scheduledFor.getTime(),
+    );
+
+    expect(matchingRuns).toHaveLength(0);
+  });
+
 });
