@@ -27,7 +27,10 @@ temp/
 !.env.example
 
 # IDE / editor
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
 .idea/
 
 # Operating system

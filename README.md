@@ -81,7 +81,7 @@ The Core must remain the same in both cases.
 - [Reference Modules](#reference-modules)
 - [Migration Strategy](#migration-strategy)
 - [Architecture Principles](#architecture-principles)
-- [Development Workflow](#development-workflow)
+- [Development Setup](#development-setup)
 - [Long-Term Goal](#long-term-goal)
 
 ---
@@ -1328,6 +1328,25 @@ The platform should remain useful whether it is used for:
 - or a combination of all of them
 
 without turning the Core into a domain-specific application.
+
+---
+
+## Development Setup
+
+To bootstrap a reproducible development environment on a fresh Windows machine:
+
+```powershell
+.\setup-dev.ps1
+```
+
+Supported script switches:
+
+- `.\setup-dev.ps1 -DryRun`: Preview all checks and planned operations without modifying files or system state.
+- `.\setup-dev.ps1 -SkipValidation`: Fast setup without running test and lint suites.
+- `.\setup-dev.ps1 -SkipExtensions`: Skip automated Antigravity / VS Code extension installation.
+- `.\setup-dev.ps1 -SkipPlaywright`: Skip checking or downloading Playwright browser binaries.
+
+For detailed instructions, prerequisites, and database workflows, see [docs/development-setup.md](docs/development-setup.md).
 
 ---
 
