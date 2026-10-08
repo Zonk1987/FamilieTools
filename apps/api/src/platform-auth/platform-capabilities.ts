@@ -7,6 +7,9 @@ export const PLATFORM_CAPABILITIES = [
   'platform.families.read',
   'platform.families.manage',
 
+  'platform.workspaces.read',
+  'platform.workspaces.manage',
+
   'platform.modules.read',
   'platform.modules.manage',
 

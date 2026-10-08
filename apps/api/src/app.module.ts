@@ -20,7 +20,8 @@ import { PlatformThrottlerGuard } from './security/platform-throttler.guard.js';
 import { CsrfOriginGuard } from './security/csrf-origin.guard.js';
 import { AuditModule } from './audit/audit.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
-
+import { WorkspacesModule } from './workspaces/workspaces.module.js';
+import { WorkspaceMembershipsModule } from './workspace-memberships/workspace-memberships.module.js';
 import { APP_GUARD } from '@nestjs/core';
 
 import { SessionAuthGuard } from './auth/session-auth.guard.js';
@@ -79,6 +80,8 @@ import { PlatformCapabilityGuard } from './platform-auth/platform-capability.gua
     InstanceSettingsModule,
     FamiliesModule,
     FamilyMembershipsModule,
+    WorkspacesModule,
+    WorkspaceMembershipsModule,
     PlatformAuthModule,
   ],
   controllers: [AppController],
