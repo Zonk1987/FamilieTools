@@ -14,3 +14,5 @@ export * from './audit-logs.js';
 export * from './job-definitions.js';
 export * from './job-runs.js';
 export * from './job-schedules.js';
+export * from './workspaces.js';
+export * from './workspace-memberships.js';
