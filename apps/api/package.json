@@ -27,7 +27,7 @@
     "recover:owner": "tsx src/scripts/recover-platform-owner.ts"
   },
   "dependencies": {
-    "@fastify/cookie": "11.1.2",
+    "@fastify/cookie": "11.1.3",
     "@fastify/helmet": "^13.1.1",
     "@fastify/static": "^10.1.4",
     "@nestjs/common": "^12.0.3",
